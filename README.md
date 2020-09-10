@@ -1,9 +1,6 @@
 # Reinforcement Learning with Augmented Data (RAD)
-
-Official codebase for [Reinforcement Learning with Augmented Data](https://mishalaskin.github.io/rad). This codebase was originally forked from [CURL](https://mishalaskin.github.io/curl). 
-
-Additionally, here is the [codebase link for ProcGen experiments](https://github.com/pokaxpoka/rad_procgen).
-
+This is a fork from RAD [github repo] (https://github.com/MishaLaskin/rad)
+Official codebase for [Reinforcement Learning with Augmented Data](https://mishalaskin.github.io/rad).
 
 ## BibTex
 
