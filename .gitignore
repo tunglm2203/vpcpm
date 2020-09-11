@@ -13,3 +13,4 @@ single_aug_040520.npy
 *.npy
 *.npz
 *.ipynb
+.idea/
