@@ -8,8 +8,10 @@ import sys
 import random
 import time
 import json
-import dmc2gym
+# import dmc2gym
 import copy
+import mime 
+from mime_wrapper import MimeWrapper
 
 import utils
 from logger import Logger
@@ -227,14 +229,16 @@ def main():
     #     frame_skip=args.action_repeat
     # )
 
-    env = dmc2gym.make(
-        task_name=args.task_name,
-        seed=args.seed,
-        from_pixels=(args.encoder_type == 'pixel'),
-        height=pre_transform_image_size,
-        width=pre_transform_image_size,
-        frame_skip=args.action_repeat
-    )
+    # env = dmc2gym.make(
+    #     task_name=args.task_name,
+    #     seed=args.seed,
+    #     from_pixels=(args.encoder_type == 'pixel'),
+    #     height=pre_transform_image_size,
+    #     width=pre_transform_image_size,
+    #     frame_skip=args.action_repeat
+    # )
+
+    env=MimeWrapper(args.task_name, from_pixels=(args.encoder_type=='pixel'))
  
     env.seed(args.seed)
 
