@@ -8,8 +8,10 @@ import sys
 import random
 import time
 import json
-import dmc2gym
+# import dmc2gym
 import copy
+import mime 
+from mime_wrapper import MimeWrapper
 
 import utils
 from logger import Logger
