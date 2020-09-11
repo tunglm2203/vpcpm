@@ -216,26 +216,17 @@ def main():
 
     pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
 
-    # env = dmc2gym.make(
-    #     domain_name=args.domain_name,
-    #     task_name=args.task_name,
-    #     seed=args.seed,
-    #     visualize_reward=False,
-    #     from_pixels=(args.encoder_type == 'pixel'),
-    #     height=pre_transform_image_size,
-    #     width=pre_transform_image_size,
-    #     frame_skip=args.action_repeat
-    # )
-
     env = dmc2gym.make(
+        domain_name=args.domain_name,
         task_name=args.task_name,
         seed=args.seed,
+        visualize_reward=False,
         from_pixels=(args.encoder_type == 'pixel'),
         height=pre_transform_image_size,
         width=pre_transform_image_size,
         frame_skip=args.action_repeat
     )
- 
+
     env.seed(args.seed)
 
     # stack several consecutive frames together
