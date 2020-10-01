@@ -49,7 +49,7 @@ def module_hash(module):
 
 def make_dir(dir_path):
     try:
-        os.mkdir(dir_path)
+        os.makedirs(dir_path)
     except OSError:
         pass
     return dir_path
@@ -89,8 +89,7 @@ class ReplayBuffer(Dataset):
         self.full = False
 
 
-    def ret_rewards(self):
-        return self.rewards
+
 
     def add(self, obs, action, reward, next_obs, done):
        
@@ -150,8 +149,8 @@ class ReplayBuffer(Dataset):
 
         return obses, actions, rewards, next_obses, not_dones, cpc_kwargs
 
-    def sample_rad(self, aug_funcs):
-         
+    def sample_rad(self,aug_funcs):
+
         # augs specified as flags
         # curl_sac organizes flags into aug funcs
         # passes aug funcs into sampler
@@ -164,8 +163,13 @@ class ReplayBuffer(Dataset):
         obses = self.obses[idxs]
         next_obses = self.next_obses[idxs]
 
-        org_obses=torch.as_tensor(obses, device=self.device).float()
-        next_org_obses=torch.as_tensor(next_obses, device=self.device).float()
+        if aug_funcs:
+            for aug,func in aug_funcs.items():
+                # apply crop and cutout first
+                if 'crop' in aug or 'cutout' in aug:
+                    obses = func(obses)
+                    next_obses = func(next_obses)
+
         obses = torch.as_tensor(obses, device=self.device).float()
         next_obses = torch.as_tensor(next_obses, device=self.device).float()
         actions = torch.as_tensor(self.actions[idxs], device=self.device)
@@ -176,13 +180,15 @@ class ReplayBuffer(Dataset):
         next_obses = next_obses / 255.
 
         # augmentations go here
- 
         if aug_funcs:
-            obses = aug_funcs.do_augmentation(obses)
-            next_obses = aug_funcs.do_augmentation(next_obses)
-    
+            for aug,func in aug_funcs.items():
+                # skip crop and cutout augs
+                if 'crop' in aug or 'cutout' in aug:
+                    continue
+                obses = func(obses)
+                next_obses = func(next_obses)
 
-        return obses, actions, rewards, next_obses, not_dones, org_obses, next_org_obses
+        return obses, actions, rewards, next_obses, not_dones
 
     def save(self, save_dir):
         if self.idx == self.last_save:

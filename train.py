@@ -8,10 +8,8 @@ import sys
 import random
 import time
 import json
-# import dmc2gym
+import dmc2gym
 import copy
-import mime 
-from mime_wrapper import MimeWrapper
 
 import utils
 from logger import Logger
@@ -19,18 +17,9 @@ from video import VideoRecorder
 
 from curl_sac import RadSacAgent
 from torchvision import transforms
+import data_augs as rad
+from tqdm import tqdm
 
-import augment
-aug_to_func = {    
-        'crop': augment.Crop,
-        'random-conv': augment.RandomConv,
-        'grayscale': augment.Grayscale,
-        'flip': augment.Flip,
-        'rotate': augment.Rotate,
-        'cutout': augment.Cutout,
-        'cutout-color': augment.CutoutColor,
-        'color-jitter': augment.ColorJitter,
-}
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -85,22 +74,11 @@ def parse_args():
     parser.add_argument('--save_video', default=False, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--detach_encoder', default=False, action='store_true')
-    
+    # data augs
+    parser.add_argument('--data_augs', default='crop', type=str)
 
-    
 
     parser.add_argument('--log_interval', default=100, type=int)
-
-# data augs
-    
-    parser.add_argument('--data_augs', default='crop', type=str)
-    parser.add_argument('--aug_coef', default=0.1, type=float)
-    parser.add_argument('--ucb_exploration_coef', default=0.1, type=float)
-    parser.add_argument('--ucb_window_length', default=10, type=int)
-    parser.add_argument('--use_ucb', default=False, action='store_true')
-
-    parser.add_argument('--add_str',default='', type=str)
-
     args = parser.parse_args()
     return args
 
@@ -122,9 +100,15 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
                     obs = utils.center_crop_image(obs,args.image_size)
                 with utils.eval_mode(agent):
                     if sample_stochastically:
-                        action = agent.sample_action(obs / 255.)
+                        if args.encoder_type == 'pixel':
+                            action = agent.sample_action(obs / 255.)
+                        else:
+                            action = agent.sample_action(obs)
                     else:
-                        action = agent.select_action(obs / 255.)
+                        if args.encoder_type == 'pixel':
+                            action = agent.select_action(obs / 255.)
+                        else:
+                            action = agent.select_action(obs)
                 obs, reward, done, _ = env.step(action)
                 video.record(env)
                 episode_reward += reward
@@ -166,11 +150,6 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
 
 def make_agent(obs_shape, action_shape, args, device):
     if args.agent == 'rad_sac':
-
-        aug_id = augment.Identity
-        aug_list = [aug_to_func[t](batch_size=args.batch_size) 
-            for t in list(aug_to_func.keys())]
-
         return RadSacAgent(
             obs_shape=obs_shape,
             action_shape=action_shape,
@@ -198,14 +177,8 @@ def make_agent(obs_shape, action_shape, args, device):
             log_interval=args.log_interval,
             detach_encoder=args.detach_encoder,
             latent_dim=args.latent_dim,
-            data_augs=args.data_augs,
-            aug_list=aug_list,
-            aug_id=aug_id,
-            aug_coef=args.aug_coef,
-            num_aug_types=len(list(aug_to_func.keys())),
-            ucb_exploration_coef=args.ucb_exploration_coef,
-            ucb_window_length=args.ucb_window_length,
-            use_ucb=args.use_ucb
+            data_augs=args.data_augs
+
         )
     else:
         assert 'agent is not supported: %s' % args.agent
@@ -236,12 +209,21 @@ def main():
         env = utils.FrameStack(env, k=args.frame_stack)
     
     # make directory
-    ts = time.localtime() 
-    ts = time.strftime("%m-%d|%H:%M",ts)    
+    ts = time.localtime()
+    ts = time.strftime("%m-%d-%H-%M-%S", ts)
     env_name = args.domain_name + '-' + args.task_name
-    exp_name = env_name + '-' + ts + '-im' + str(args.image_size) +'-b'  \
-    + str(args.batch_size) + '-s' + str(args.seed)  +'-'+ '-aug'+str(args.aug_coef)+'-' + args.encoder_type
-    args.work_dir = args.work_dir + '/'  + exp_name + args.add_str
+    if args.encoder_type == 'pixel':
+        exp_name = env_name + '-' + '-im' + str(args.image_size) + \
+                   '-b' + str(args.batch_size) + '-s' + str(args.seed) + \
+                   '-' + args.encoder_type + '-' + ts
+    elif args.encoder_type == 'identity':
+        exp_name = env_name + '-' + '-state' + \
+                   '-b' + str(args.batch_size) + '-s' + str(args.seed) + \
+                   '-' + args.encoder_type + '-' + ts
+    else:
+        raise NotImplementedError('Not support: {}'.format(args.encoder_type))
+
+    args.work_dir = args.work_dir + '/'  + exp_name
 
     utils.make_dir(args.work_dir)
     video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
@@ -285,7 +267,7 @@ def main():
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
 
-    for step in range(args.num_train_steps):
+    for step in tqdm(range(args.num_train_steps)):
         # evaluate agent periodically
 
         if step % args.eval_freq == 0:
@@ -318,14 +300,15 @@ def main():
             action = env.action_space.sample()
         else:
             with utils.eval_mode(agent):
-                action = agent.sample_action(obs / 255.)
+                if args.encoder_type == 'pixel':
+                    action = agent.sample_action(obs / 255.)
+                else:
+                    action = agent.sample_action(obs)
 
         # run training update
         if step >= args.init_steps:
-            num_updates = 1 
-            for j in range(num_updates):
-                if step > 1000 and step % 500==0 and args.use_ucb:
-                    agent.update_ucb_values(replay_buffer)
+            num_updates = 1
+            for _ in range(num_updates):
                 agent.update(replay_buffer, L, step)
 
         next_obs, reward, done, _ = env.step(action)

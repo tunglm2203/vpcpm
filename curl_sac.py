@@ -9,7 +9,6 @@ import utils
 from encoder import make_encoder
 import data_augs as rad 
 
-from collections import deque
 LOG_FREQ = 10000
 
         
@@ -264,13 +263,6 @@ class RadSacAgent(object):
         detach_encoder=False,
         latent_dim=128,
         data_augs = '',
-        aug_list=None,
-        aug_id=None,
-        aug_coef=0.1,
-        num_aug_types=8,
-        ucb_exploration_coef=0.5,
-        ucb_window_length=10,
-        use_ucb=False
     ):
         self.device = device
         self.discount = discount
@@ -286,28 +278,23 @@ class RadSacAgent(object):
         self.encoder_type = encoder_type
         self.data_augs = data_augs
 
-    
-        # UCB args
-        self.aug_list = aug_list
-        self.aug_id = aug_id
-        self.aug_coef = aug_coef
         self.augs_funcs = {}
 
-        self.ucb_exploration_coef = ucb_exploration_coef
-        self.ucb_window_length = ucb_window_length
+        aug_to_func = {
+                'crop':rad.random_crop,
+                'grayscale':rad.random_grayscale,
+                'cutout':rad.random_cutout,
+                'cutout_color':rad.random_cutout_color,
+                'flip':rad.random_flip,
+                'rotate':rad.random_rotation,
+                'rand_conv':rad.random_convolution,
+                'color_jitter':rad.random_color_jitter,
+                'no_aug':rad.no_aug,
+            }
 
-        self.num_aug_types = num_aug_types
-        self.total_num = 1
-        self.num_action = [1.] * self.num_aug_types 
-        self.qval_action = [0.] * self.num_aug_types 
-
-        self.expl_action = [0.] * self.num_aug_types 
-        self.ucb_action = [0.] * self.num_aug_types 
-        self.use_ucb=use_ucb
-        self.return_action = []
-
-        for _ in range(num_aug_types):
-            self.return_action.append(deque(maxlen=ucb_window_length))
+        for aug_name in self.data_augs.split('-'):
+            assert aug_name in aug_to_func, 'invalid data aug string'
+            self.augs_funcs[aug_name] = aug_to_func[aug_name]
 
         self.actor = Actor(
             obs_shape, action_shape, hidden_dim, encoder_type,
@@ -387,7 +374,7 @@ class RadSacAgent(object):
             return mu.cpu().data.numpy().flatten()
 
     def sample_action(self, obs):
-        if obs.shape[-1] != self.image_size:
+        if self.encoder_type == 'pixel' and obs.shape[-1] != self.image_size:
             obs = utils.center_crop_image(obs, self.image_size)
  
         with torch.no_grad():
@@ -396,94 +383,19 @@ class RadSacAgent(object):
             mu, pi, _, _ = self.actor(obs, compute_log_pi=False)
             return pi.cpu().data.numpy().flatten()
 
-    def select_ucb_aug(self):
-        for i in range(self.num_aug_types):
-            self.expl_action[i] = self.ucb_exploration_coef * \
-                np.sqrt(np.log(self.total_num) / self.num_action[i])
-            self.ucb_action[i] = self.qval_action[i] + self.expl_action[i]
-        ucb_aug_id = np.argmax(self.ucb_action)
-        return ucb_aug_id, self.aug_list[ucb_aug_id]
-
-    def update_ucb_values(self, rollouts):
-        self.total_num += 1
-        self.num_action[self.current_aug_id] += 1
-        self.return_action[self.current_aug_id].append(rollouts.ret_rewards().mean().item())
-        self.qval_action[self.current_aug_id] = np.mean(self.return_action[self.current_aug_id])
-
-    def fftshift(self, real):
-        for dim in range(1, len(real.size())):
-            real = torch.fft.roll_n(real, axis=dim, n=real.size(dim)//2)
-            # imag = torch.fft.roll_n(imag, axis=dim, n=imag.size(dim)//2)
-        return real
-
-
-
-    def update_critic(self, action, reward, not_done, L, step, org_obs, next_org_obs, aug_obs=None, next_aug_obs=None):
-        # org_obs=F.interpolate(org_obs,size=[84,84])
-        # next_org_obs=F.interpolate(next_org_obs,size=[84,84])
-
-        # import pdb; pdb.set_trace()
+    def update_critic(self, obs, action, reward, next_obs, not_done, L, step):
         with torch.no_grad():
-            _, next_policy_action, next_log_pi, _ = self.actor(next_org_obs)
-            _, org_obs_policy_action, org_log_pi, _ = self.actor(org_obs)
-
-            if next_aug_obs is not None:
-                _, next_aug_policy_action, next_aug_log_pi, _ = self.actor(next_aug_obs)
-                _, _, aug_log_pi, _ = self.actor(aug_obs)
-
-            target_Q1, target_Q2 = self.critic_target(next_org_obs, next_policy_action)
+            _, policy_action, log_pi, _ = self.actor(next_obs)
+            target_Q1, target_Q2 = self.critic_target(next_obs, policy_action)
             target_V = torch.min(target_Q1,
-                                 target_Q2) - self.alpha.detach() * next_log_pi
+                                 target_Q2) - self.alpha.detach() * log_pi
             target_Q = reward + (not_done * self.discount * target_V)
-            if next_aug_obs is not None:
-                target_Q1, target_Q2 = self.critic_target(next_aug_obs, next_aug_policy_action)
-                target_V = torch.min(target_Q1,
-                                    target_Q2) - self.alpha.detach() * next_aug_log_pi
-                target_Q_aug = reward + (not_done * self.discount * target_V)
 
-                target_Q=(target_Q+target_Q_aug)/2
-            # get current Q estimates
-            
+        # get current Q estimates
         current_Q1, current_Q2 = self.critic(
-                org_obs, action, detach_encoder=self.detach_encoder)
-            
-        critic_loss = F.mse_loss(current_Q1,target_Q) + F.mse_loss(current_Q2, target_Q)
-        if (next_aug_obs is not None) and (aug_obs is not None):
-            
-            
-            Q1_aug, Q2_aug=self.critic(
-                aug_obs,action, detach_encoder=self.detach_encoder)
-
-            aug_loss = F.mse_loss(Q1_aug, target_Q) + F.mse_loss(
-                        Q2_aug, target_Q)
-        
-            aux_loss = self.aug_coef * (aug_loss - aug_log_pi.mean() )
-            
-        # np_org=org_obs.detach().cpu().numpy().transpose(0,2,3,1)
-        # np_aug=aug_obs.detach().cpu().numpy().transpose(0,2,3,1)
-
-        # fft_loss=0
-        # for ind in range(org_obs.shape[0]):
-        #     for inx in range(org_obs.shape[0]//3):
-        #         org_single_img=torch.transpose(torch.transpose(org_obs[ind, inx*3 : (inx+1)*3, :, :], 0, 2),0,1)
-        #         aug_single_img=torch.transpose(torch.transpose(aug_obs[ind, inx*3 : (inx+1)*3, :, :], 0, 2),0,1)
-        #         fft_org=torch.fft(org_single_img)
-        #         fft_aug=torch.fft(aug_single_img)
-        #         shft_org = self.fftshift(fft_org)
-        #         shft_aug = self.fftshift(fft_aug)
-        #         fft_loss+=torch.sum(torch.abs(torch.clamp(torch.abs(shft_org[:,37:47, 37:47, :]), 0, 255)- torch.clamp(torch.abs(shft_aug[:,37:47, 37:47, :]), 0, 255)))/1e+7
-        # print(fft_diff)
-        # fft_loss = torch.as_tensor(fft_diff).float().to(self.device)
-
-        if step % self.log_interval == 0:
-            
-            if 'aug_loss' in locals():
-                L.log('train_critic/aux_loss', aug_loss, step)
-                L.log('train_critic/SAC_loss', critic_loss, step)
-            # L.log('train_critic/fft_loss', fft_loss, step)
-        if 'aug_loss' in locals():
-            critic_loss=critic_loss+aux_loss
-        
+            obs, action, detach_encoder=self.detach_encoder)
+        critic_loss = F.mse_loss(current_Q1,
+                                 target_Q) + F.mse_loss(current_Q2, target_Q)
         if step % self.log_interval == 0:
             L.log('train_critic/loss', critic_loss, step)
 
@@ -495,21 +407,13 @@ class RadSacAgent(object):
 
         self.critic.log(L, step)
 
-    def update_actor_and_alpha(self, org_obs, L, step):
-        # org_obs=F.interpolate(org_obs,size=[84,84])
+    def update_actor_and_alpha(self, obs, L, step):
         # detach encoder, so we don't update it with the actor loss
-        _, pi, log_pi, log_std = self.actor(org_obs, detach_encoder=True)
-        # _, _, aug_log_pi, _ = self.actor(aug_obs, detach_encoder=True)
-        actor_Q1, actor_Q2 = self.critic(org_obs, pi, detach_encoder=True)
+        _, pi, log_pi, log_std = self.actor(obs, detach_encoder=True)
+        actor_Q1, actor_Q2 = self.critic(obs, pi, detach_encoder=True)
 
         actor_Q = torch.min(actor_Q1, actor_Q2)
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
-        # aux_loss = - self.aug_coef* aug_log_pi.mean()
-        # if step % self.log_interval == 0:
-            # L.log('train_actor/SAC_loss', actor_loss, step)
-            # L.log('train_actor/aux_loss', aux_loss, step)
-
-        # actor_loss+=aux_loss
 
         if step % self.log_interval == 0:
             L.log('train_actor/loss', actor_loss, step)
@@ -562,26 +466,18 @@ class RadSacAgent(object):
 
 
     def update(self, replay_buffer, L, step):
-        if self.use_ucb:
-            self.current_aug_id, self.current_aug_func = self.select_ucb_aug()
-        else:
-            self.current_aug_func=self.aug_list[0]
-
         if self.encoder_type == 'pixel':
-            aug_obs, action, reward, next_aug_obs, not_done, org_obs, next_org_obs = replay_buffer.sample_rad(self.current_aug_func)
+            obs, action, reward, next_obs, not_done = replay_buffer.sample_rad(self.augs_funcs)
         else:
-            org_obs, action, reward, next_org_obs, not_done = replay_buffer.sample_proprio()
+            obs, action, reward, next_obs, not_done = replay_buffer.sample_proprio()
     
         if step % self.log_interval == 0:
             L.log('train/batch_reward', reward.mean(), step)
 
-        if self.encoder_type == 'pixel':
-            self.update_critic(action, reward, not_done, L, step, org_obs, next_org_obs, aug_obs, next_aug_obs)
-        else:
-            self.update_critic(action, reward, not_done, L, step, org_obs, next_org_obs)
+        self.update_critic(obs, action, reward, next_obs, not_done, L, step)
 
         if step % self.actor_update_freq == 0:
-            self.update_actor_and_alpha(org_obs, L, step)
+            self.update_actor_and_alpha(obs, L, step)
 
         if step % self.critic_target_update_freq == 0:
             utils.soft_update_params(
@@ -594,8 +490,6 @@ class RadSacAgent(object):
                 self.critic.encoder, self.critic_target.encoder,
                 self.encoder_tau
             )
-        if self.use_ucb:
-            self.current_aug_func.change_randomization_params_all()
 
         #if step % self.cpc_update_freq == 0 and self.encoder_type == 'pixel':
         #    obs_anchor, obs_pos = cpc_kwargs["obs_anchor"], cpc_kwargs["obs_pos"]
@@ -608,6 +502,10 @@ class RadSacAgent(object):
         torch.save(
             self.critic.state_dict(), '%s/critic_%s.pt' % (model_dir, step)
         )
+        if self.encoder_type == 'pixel':
+            torch.save(
+                self.CURL.state_dict(), '%s/curl_%s.pt' % (model_dir, step)
+            )
 
     def save_curl(self, model_dir, step):
         torch.save(
@@ -616,9 +514,13 @@ class RadSacAgent(object):
 
     def load(self, model_dir, step):
         self.actor.load_state_dict(
-            torch.load('%s/actor_%s.pt' % (model_dir, step))
+            torch.load('%s/actor_%s.pt' % (model_dir, step), map_location=self.device)
         )
         self.critic.load_state_dict(
-            torch.load('%s/critic_%s.pt' % (model_dir, step))
+            torch.load('%s/critic_%s.pt' % (model_dir, step), map_location=self.device)
         )
- 
+        if self.encoder_type == 'pixel':
+            self.CURL.load_state_dict(
+                torch.load('%s/curl_%s.pt' % (model_dir, step), map_location=self.device)
+            )
+
