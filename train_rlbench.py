@@ -18,6 +18,7 @@ from video import VideoRecorder
 from curl_sac import RadSacAgent
 from torchvision import transforms
 from tqdm import tqdm
+from collections import deque
 
 
 def parse_args():
@@ -131,6 +132,7 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
         mean_ep_reward = np.mean(all_ep_rewards)
         std_ep_reward = np.std(all_ep_rewards)
         best_ep_reward = np.max(all_ep_rewards)
+        L.log('eval/' + prefix + 'std_episode_reward', std_ep_reward, step)
         L.log('eval/' + prefix + 'mean_episode_reward', mean_ep_reward, step)
         L.log('eval/' + prefix + 'best_episode_reward', best_ep_reward, step)
         L.log('eval/' + prefix + 'success_rate_of_{}_episodes'.format(num_episodes), success_rate, step)
@@ -209,6 +211,9 @@ def main():
         height=pre_transform_image_size,
         width=pre_transform_image_size,
         frame_skip=args.action_repeat,    # args.action_repeat
+        channels_first=True,
+        pixel_normalize=False,
+        render=False
     )
     env.seed(args.seed)
 
@@ -262,37 +267,49 @@ def main():
 
     L = Logger(args.work_dir, use_tb=args.save_tb)
 
-    episode, episode_reward, done = 0, 0, True
+    train_success_rate = deque([], maxlen=args.num_eval_episodes)
+    train_ep_rewards = deque([], maxlen=args.num_eval_episodes)
+    episode, episode_reward, done, info = 0, 0, True, {}
     start_time = time.time()
 
     training_freq = args.training_freq
     for step in tqdm(range(args.num_train_steps)):
-        # evaluate agent periodically
-
-        if step % args.eval_freq == 0:
-            L.log('eval/episode', episode, step)
-            evaluate(env, agent, video, args.num_eval_episodes, L, step,args)
-            if args.save_model and step % args.save_freq == 0:
-                agent.save(model_dir, step)
-            if args.save_buffer:
-                replay_buffer.save(buffer_dir)
-
         if done:
+            train_ep_rewards.append(episode_reward)
+            if 'success' in info.keys():
+                train_success_rate.append(float(info['success']))
             if step > 0:
-                if step % args.log_interval == 0:
-                    L.log('train/duration', time.time() - start_time, step)
-                    L.dump(step)
+                L.log('train/duration', time.time() - start_time, step)
                 start_time = time.time()
-            if step % args.log_interval == 0:
-                L.log('train/episode_reward', episode_reward, step)
+                L.dump(step)
+
+            # evaluate agent periodically
+            if step % args.eval_freq == 0:
+                L.log('eval/episode', episode, step)
+                evaluate(env, agent, video, args.num_eval_episodes, L, step, args)
+                if args.save_model and step % args.save_freq == 0:
+                    agent.save(model_dir, step)
+                if args.save_buffer:
+                    replay_buffer.save(buffer_dir)
+
+            L.log('train/episode_reward', episode_reward, step)
+
+            mean_ep_reward = np.mean(train_ep_rewards)
+            std_ep_reward = np.std(train_ep_rewards)
+            best_ep_reward = np.max(train_ep_rewards)
+            L.log('train/std_episode_reward', std_ep_reward, step)
+            L.log('train/mean_episode_reward', mean_ep_reward, step)
+            L.log('train/best_episode_reward', best_ep_reward, step)
+            L.log('train/success_rate_of_last_{}_episodes'.format(args.num_eval_episodes),
+                  np.mean(train_success_rate), step)
 
             obs = env.reset()
             done = False
             episode_reward = 0
             episode_step = 0
             episode += 1
-            if step % args.log_interval == 0:
-                L.log('train/episode', episode, step)
+
+            L.log('train/episode', episode, step)
 
         # sample action for data collection
         if step < args.init_steps:
@@ -310,7 +327,7 @@ def main():
             for _ in range(num_updates):
                 agent.update(replay_buffer, L, step)
 
-        next_obs, reward, done, _ = env.step(action)
+        next_obs, reward, done, info = env.step(action)
 
         # allow infinit bootstrap
         done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(

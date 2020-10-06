@@ -9,7 +9,7 @@ import utils
 from encoder import make_encoder
 import data_augs as rad 
 
-LOG_FREQ = 10000
+LOG_FREQ = 1000
 
         
 def gaussian_logprob(noise, log_std):
