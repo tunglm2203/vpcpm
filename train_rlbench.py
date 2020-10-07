@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('--task_name', default='swingup')
     parser.add_argument('--pre_transform_image_size', default=100, type=int)
 
+    parser.add_argument('--use_depth', default=False, action='store_true')
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
@@ -202,6 +203,7 @@ def main():
         args.__dict__["seed"] = np.random.randint(1,1000000)
     utils.set_seed_everywhere(args.seed)
 
+    channels_first = True
     pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
 
     env = RLBenchWrapper_v1(
@@ -211,9 +213,10 @@ def main():
         height=pre_transform_image_size,
         width=pre_transform_image_size,
         frame_skip=args.action_repeat,    # args.action_repeat
-        channels_first=True,
+        channels_first=channels_first,
         pixel_normalize=False,
-        render=False
+        render=True,
+        use_depth=args.use_depth
     )
     env.seed(args.seed)
 
@@ -243,8 +246,9 @@ def main():
     action_shape = env.action_space.shape
 
     if args.encoder_type == 'pixel':
-        obs_shape = (3*args.frame_stack, args.image_size, args.image_size)
-        pre_aug_obs_shape = (3*args.frame_stack,pre_transform_image_size,pre_transform_image_size)
+        n_channels = env.observation_space.shape[0] if channels_first else env.observation_space.shape[2]
+        obs_shape = (n_channels*args.frame_stack, args.image_size, args.image_size)
+        pre_aug_obs_shape = (n_channels*args.frame_stack,pre_transform_image_size,pre_transform_image_size)
     else:
         obs_shape = env.observation_space.shape
         pre_aug_obs_shape = obs_shape
@@ -286,7 +290,7 @@ def main():
             # evaluate agent periodically
             if step % args.eval_freq == 0:
                 L.log('eval/episode', episode, step)
-                evaluate(env, agent, video, args.num_eval_episodes, L, step, args)
+                evaluate(env, agent, video, 5, L, step, args)
                 if args.save_model and step % args.save_freq == 0:
                     agent.save(model_dir, step)
                 if args.save_buffer:
