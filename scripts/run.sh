@@ -11,37 +11,9 @@
 #    --eval_freq 10000 --batch_size 128 --num_train_steps 200000\
 #    --save_tb
 
-#ENV_NAME='reach_target-state-v0'
-#CUDA_VISIBLE_DEVICES=0 python train_rlbench.py \
-#    --domain_name panda \
-#    --task_name $ENV_NAME \
-#    --encoder_type identity --work_dir ./logs \
-#    --action_repeat 1 --num_eval_episodes 10 \
-#    --pre_transform_image_size 100 --image_size 84 \
-#    --agent rad_sac --frame_stack 1  \
-#    --seed 23 --critic_lr 1e-3 --actor_lr 1e-3 --critic_tau 0.01\
-#    --eval_freq 10000 --batch_size 128 --num_train_steps 200000\
-#    --training_freq 1 --num_updates 1 \
-#    --save_tb --save_model
-
-#CUDA_VISIBLE_DEVICES=0 python train_rlbench.py \
-#    --domain_name panda \
-#    --task_name $ENV_NAME \
-#    --encoder_type identity --work_dir ./logs \
-#    --action_repeat 1 --num_eval_episodes 10 \
-#    --agent rad_sac --frame_stack 1  \
-#    --seed 1 \
-#    --critic_lr 1e-3 --critic_beta 0.9 --actor_lr 1e-3 --actor_beta 0.9 --critic_tau 0.01 \
-#    --alpha_lr 1e-4 --alpha_beta 0.5 \
-#    --exp 'original_alpha_lr_1e-4_beta_0.5_actorfreq_1'\
-#    --actor_update_freq 1 \
-#    --critic_target_update_freq 2 \
-#    --eval_freq 1000 --batch_size 128 --num_train_steps 100000 --init_steps 1000 \
-#    --training_freq 1 --num_updates 1 \
-#    --save_tb --save_model
-
 # Same with rlkit
 #ENV_NAME='reach_target-state-v0'
+#EXP_NAME='baseline-200k'
 #CUDA_VISIBLE_DEVICES=0 python train_rlbench.py \
 #    --domain_name panda \
 #    --task_name $ENV_NAME \
@@ -49,12 +21,12 @@
 #    --action_repeat 1 --num_eval_episodes 10 \
 #    --agent rad_sac --frame_stack 1 \
 #    --seed 1 \
-#    --exp 'rlkit-logstdmin-20-lr3e_4' \
+#    --exp $EXP_NAME \
 #    --critic_beta 0.9 --critic_lr 3e-4 --actor_beta 0.9 --actor_lr 3e-4 --critic_tau 0.001 \
 #    --alpha_lr 3e-4 --alpha_beta 0.9 \
 #    --actor_log_std_min -20 --actor_log_std_max 2 \
 #    --critic_target_update_freq 1 --actor_update_freq 1 \
-#    --eval_freq 1000 --batch_size 256 --num_train_steps 100000 --init_steps 1000 \
+#    --eval_freq 1000 --batch_size 256 --num_train_steps 200000 --init_steps 1000 \
 #    --training_freq 500 --num_updates 50 \
 #    --save_tb --save_model
 
@@ -70,13 +42,13 @@
 #    --save_tb
 
 ENV_NAME='reach_target-vision-v0'
-EXP_NAME='rlkit-framestack1-update50-no_aug-simple-env-depth-200ksteps'
+EXP_NAME='baseline-200k-stack1-update50-simple-env-depth-crop'
 CUDA_VISIBLE_DEVICES=0 python train_rlbench.py \
     --domain_name panda \
     --task_name $ENV_NAME \
     --encoder_type pixel --work_dir ./logs \
     --action_repeat 1 --num_eval_episodes 10 \
-    --agent rad_sac --frame_stack 1 --data_augs no_aug \
+    --agent rad_sac --frame_stack 1 --data_augs crop \
     --seed 1 \
     --critic_beta 0.9 --critic_lr 3e-4 --actor_beta 0.9 --actor_lr 3e-4 --critic_tau 0.001 \
     --alpha_lr 3e-4 --alpha_beta 0.9 \
