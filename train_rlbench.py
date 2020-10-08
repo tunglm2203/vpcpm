@@ -250,7 +250,7 @@ def main():
     action_shape = env.action_space.shape
 
     if args.encoder_type == 'pixel':
-        n_channels = env.observation_space.shape[0] if channels_first else env.observation_space.shape[2]
+        n_channels = 4 if args.use_depth else 3
         obs_shape = (n_channels*args.frame_stack, args.image_size, args.image_size)
         pre_aug_obs_shape = (n_channels*args.frame_stack,pre_transform_image_size,pre_transform_image_size)
     else:
