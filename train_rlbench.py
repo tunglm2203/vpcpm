@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--pre_transform_image_size', default=100, type=int)
 
     parser.add_argument('--use_depth', default=False, action='store_true')
+    parser.add_argument('--channels_first', default=True, action='store_false')
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
@@ -203,7 +204,7 @@ def main():
         args.__dict__["seed"] = np.random.randint(1,1000000)
     utils.set_seed_everywhere(args.seed)
 
-    channels_first = True
+    channels_first = args.channels_first
     pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
 
     env = RLBenchWrapper_v1(
@@ -215,7 +216,7 @@ def main():
         frame_skip=args.action_repeat,    # args.action_repeat
         channels_first=channels_first,
         pixel_normalize=False,
-        render=True,
+        render=False,
         use_depth=args.use_depth
     )
     env.seed(args.seed)

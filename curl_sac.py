@@ -9,7 +9,7 @@ import utils
 from encoder import make_encoder
 import data_augs as rad 
 
-LOG_FREQ = 1000
+LOG_FREQ = 10000
 
         
 def gaussian_logprob(noise, log_std):
@@ -405,7 +405,7 @@ class RadSacAgent(object):
         critic_loss.backward()
         self.critic_optimizer.step()
 
-        self.critic.log(L, step)
+        self.critic.log(L, step, log_freq=LOG_FREQ)
 
     def update_actor_and_alpha(self, obs, L, step):
         # detach encoder, so we don't update it with the actor loss
@@ -428,7 +428,7 @@ class RadSacAgent(object):
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        self.actor.log(L, step)
+        self.actor.log(L, step, log_freq=LOG_FREQ)
 
         self.log_alpha_optimizer.zero_grad()
         alpha_loss = (self.alpha *
