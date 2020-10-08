@@ -70,7 +70,7 @@
 #    --save_tb
 
 ENV_NAME='reach_target-vision-v0'
-EXP_NAME='rlkit-framestack1-update50-no_aug-simple-env-depth'
+EXP_NAME='rlkit-framestack1-update50-no_aug-simple-env-depth-200ksteps'
 CUDA_VISIBLE_DEVICES=0 python train_rlbench.py \
     --domain_name panda \
     --task_name $ENV_NAME \
@@ -83,6 +83,6 @@ CUDA_VISIBLE_DEVICES=0 python train_rlbench.py \
     --actor_log_std_min -20 --actor_log_std_max 2 \
     --exp $EXP_NAME \
     --critic_target_update_freq 1 --actor_update_freq 1 \
-    --eval_freq 1000 --batch_size 256 --num_train_steps 100000 --init_steps 1000 \
+    --eval_freq 1000 --batch_size 256 --num_train_steps 200000 --init_steps 1000 \
     --training_freq 500 --num_updates 50 \
     --save_tb --save_model --use_depth
