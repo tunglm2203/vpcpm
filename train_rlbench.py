@@ -285,7 +285,6 @@ def main():
         device=device
     )
 
-    import pdb; pdb.set_trace()
     L = Logger(args.work_dir, use_tb=args.save_tb)
 
     train_success_rate = deque([], maxlen=args.num_eval_episodes)
