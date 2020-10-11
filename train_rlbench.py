@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--pre_transform_image_size', default=100, type=int)
 
     parser.add_argument('--use_depth', default=False, action='store_true')
+    parser.add_argument('--use_rgb', default=False, action='store_true')
     parser.add_argument('--channels_first', default=True, action='store_false')
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)

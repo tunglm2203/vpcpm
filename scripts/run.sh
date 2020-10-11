@@ -55,6 +55,6 @@ CUDA_VISIBLE_DEVICES=0 python train_rlbench.py \
     --actor_log_std_min -20 --actor_log_std_max 2 \
     --exp $EXP_NAME \
     --critic_target_update_freq 1 --actor_update_freq 1 \
-    --eval_freq 1000 --batch_size 256 --num_train_steps 200000 --init_steps 1000 \
+    --eval_freq 1000 --batch_size 256 --num_train_steps 200000 --init_steps 100 \
     --training_freq 500 --num_updates 50 \
     --save_tb --save_model --use_depth
