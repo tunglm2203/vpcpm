@@ -42,19 +42,19 @@
 #    --save_tb
 
 ENV_NAME='reach_target-vision-v0'
-EXP_NAME='baseline-200k-stack1-update50-simple-env-depth-crop'
+EXP_NAME='baseline-200k-stack1-update50-full-env-depth_only-crop'
 CUDA_VISIBLE_DEVICES=0 python train_rlbench.py \
     --domain_name panda \
     --task_name $ENV_NAME \
     --encoder_type pixel --work_dir ./logs \
     --action_repeat 1 --num_eval_episodes 10 \
-    --agent rad_sac --frame_stack 1 --data_augs crop \
+    --agent rad_sac --frame_stack 3 --data_augs crop \
     --seed 1 \
     --critic_beta 0.9 --critic_lr 3e-4 --actor_beta 0.9 --actor_lr 3e-4 --critic_tau 0.001 \
     --alpha_lr 3e-4 --alpha_beta 0.9 \
     --actor_log_std_min -20 --actor_log_std_max 2 \
     --exp $EXP_NAME \
     --critic_target_update_freq 1 --actor_update_freq 1 \
-    --eval_freq 1000 --batch_size 256 --num_train_steps 200000 --init_steps 100 \
+    --eval_freq 1000 --batch_size 256 --num_train_steps 200000 --init_steps 1000 \
     --training_freq 500 --num_updates 50 \
     --save_tb --save_model --use_depth

@@ -218,7 +218,8 @@ def main():
         channels_first=channels_first,
         pixel_normalize=False,
         render=False,
-        use_depth=args.use_depth
+        use_depth=args.use_depth,
+        use_rgb=args.use_rgb
     )
     env.seed(args.seed)
 
@@ -251,7 +252,17 @@ def main():
     action_shape = env.action_space.shape
 
     if args.encoder_type == 'pixel':
-        n_channels = 4 if args.use_depth else 3
+        if args.use_rgb and args.use_depth:
+            n_channels = 4
+            print('Using RGB-D image.')
+        elif args.use_rgb and not args.use_depth:
+            n_channels = 3
+            print('Using RGB image.')
+        elif not args.use_rgb and args.use_depth:
+            n_channels = 1
+            print('Using D-only image.')
+        else:
+            raise NotImplementedError
         obs_shape = (n_channels*args.frame_stack, args.image_size, args.image_size)
         pre_aug_obs_shape = (n_channels*args.frame_stack,pre_transform_image_size,pre_transform_image_size)
     else:
@@ -274,6 +285,7 @@ def main():
         device=device
     )
 
+    import pdb; pdb.set_trace()
     L = Logger(args.work_dir, use_tb=args.save_tb)
 
     train_success_rate = deque([], maxlen=args.num_eval_episodes)
