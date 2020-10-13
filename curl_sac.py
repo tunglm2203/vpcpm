@@ -263,6 +263,7 @@ class RadSacAgent(object):
         detach_encoder=False,
         latent_dim=128,
         data_augs = '',
+        padding_random_crop=False,
     ):
         self.device = device
         self.discount = discount
@@ -281,7 +282,7 @@ class RadSacAgent(object):
         self.augs_funcs = {}
 
         aug_to_func = {
-                'crop':rad.random_crop,
+                'crop':rad.padding_random_crop if padding_random_crop else rad.random_crop,
                 'grayscale':rad.random_grayscale,
                 'cutout':rad.random_cutout,
                 'cutout_color':rad.random_cutout_color,

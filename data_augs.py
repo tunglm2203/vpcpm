@@ -23,6 +23,15 @@ def random_crop(imgs, out=84):
     return cropped
 
 
+def padding_random_crop(imgs, out=84):
+    # Padding by replicating edge value (same with auto-drac)
+    padding = int((100 - out)/2)
+    x = np.pad(imgs, ((0, ), (0, ), (padding, ), (padding, )), mode='edge')
+
+    cropped = random_crop(x)
+
+    return cropped
+
 def grayscale(imgs):
     # imgs: b x c x h x w
     device = imgs.device

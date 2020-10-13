@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('--task_name', default='swingup')
     parser.add_argument('--pre_transform_image_size', default=100, type=int)
 
+    parser.add_argument('--padding_random_crop', default=False, action='store_true')
     parser.add_argument('--use_depth', default=False, action='store_true')
     parser.add_argument('--use_rgb', default=False, action='store_true')
     parser.add_argument('--channels_first', default=True, action='store_false')
@@ -193,8 +194,8 @@ def make_agent(obs_shape, action_shape, args, device):
             log_interval=args.log_interval,
             detach_encoder=args.detach_encoder,
             latent_dim=args.latent_dim,
-            data_augs=args.data_augs
-
+            data_augs=args.data_augs,
+            padding_random_crop=args.padding_random_crop
         )
     else:
         assert 'agent is not supported: %s' % args.agent
@@ -206,7 +207,10 @@ def main():
     utils.set_seed_everywhere(args.seed)
 
     channels_first = args.channels_first
-    pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
+    if args.padding_random_crop:
+        pre_transform_image_size = args.image_size
+    else:
+        pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
 
     env = RLBenchWrapper_v1(
         args.task_name,
