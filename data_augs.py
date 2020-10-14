@@ -5,30 +5,75 @@ import torch.nn as nn
 from TransformLayer import ColorJitterLayer
 
 
-def random_crop(imgs, out=84):
+def random_crop(imgs, out=84, mode='align'):
     """
         args:
         imgs: np.array shape (B,C,H,W)
         out: output size (e.g. 84)
         returns np.array
     """
+    SUPPORT_MODE = ['align', 'separate', 'rgb_only', 'depth_only']
+    assert mode in SUPPORT_MODE, 'Cropping mode: {} is not supported'.format(mode)
     n, c, h, w = imgs.shape
     crop_max = h - out + 1
-    w1 = np.random.randint(0, crop_max, n)
-    h1 = np.random.randint(0, crop_max, n)
+    # w1 = np.random.randint(0, crop_max, n)
+    # h1 = np.random.randint(0, crop_max, n)
     cropped = np.empty((n, c, out, out), dtype=imgs.dtype)
-    for i, (img, w11, h11) in enumerate(zip(imgs, w1, h1)):
-        
-        cropped[i] = img[:, h11:h11 + out, w11:w11 + out]
+    mask_rgb, mask_depth = None, None
+    if c == 4 or c == 12:
+        has_depth = True
+        if c == 4:
+            mask_rgb = [True, True, True, False]
+            mask_depth = np.logical_not(mask_rgb)
+        else:
+            mask_rgb = [True, True, True, False, True, True, True, False, True, True, True, False]
+            mask_depth = np.logical_not(mask_rgb)
+    elif c == 3 or c == 9:
+        has_depth = False
+    else:
+        raise NotImplementedError
+
+    if mode == 'align':
+        w1 = np.random.randint(0, crop_max, n)
+        h1 = np.random.randint(0, crop_max, n)
+        for i, (img, w11, h11) in enumerate(zip(imgs, w1, h1)):
+            cropped[i] = img[:, h11:h11 + out, w11:w11 + out]
+    elif mode == 'separate':
+        assert has_depth, "No depth, please use mode='align'"
+        w1 = np.random.randint(0, crop_max, n)
+        h1 = np.random.randint(0, crop_max, n)
+        w1_d = np.random.randint(0, crop_max, n)
+        h1_d = np.random.randint(0, crop_max, n)
+        for i, (img, w11, h11, w11_d, h11_d) in enumerate(zip(imgs, w1, h1, w1_d, h1_d)):
+            cropped[i, mask_rgb, :] = img[mask_rgb, h11:h11 + out, w11:w11 + out]
+            cropped[i, mask_depth, :] = img[mask_depth, h11_d:h11_d + out, w11_d:w11_d + out]
+    elif mode == 'rgb_only':
+        assert has_depth, "No depth, please use mode='align'"
+        w1 = np.random.randint(0, crop_max, n)
+        h1 = np.random.randint(0, crop_max, n)
+        h11_d = w11_d = int((h - out)//2)
+        for i, (img, w11, h11) in enumerate(zip(imgs, w1, h1)):
+            cropped[i, mask_rgb, :] = img[mask_rgb, h11:h11 + out, w11:w11 + out]
+            cropped[i, mask_depth, :] = img[mask_depth, h11_d:h11_d + out, w11_d:w11_d + out]   # Centor crop
+    elif mode == 'depth_only':
+        assert has_depth, "No depth, please use mode='align'"
+        w11 = h11 = int((h - out) // 2)
+        w1_d = np.random.randint(0, crop_max, n)
+        h1_d = np.random.randint(0, crop_max, n)
+        for i, (img, w11_d, h11_d) in enumerate(zip(imgs, w1_d, h1_d)):
+            cropped[i, mask_rgb, :] = img[mask_rgb, h11:h11 + out, w11:w11 + out]
+            cropped[i, mask_depth, :] = img[mask_depth, h11_d:h11_d + out, w11_d:w11_d + out]  # Centor crop
+    else:
+        raise NotImplementedError
     return cropped
 
 
-def padding_random_crop(imgs, out=84):
+def padding_random_crop(imgs, out=84, mode='align'):
     # Padding by replicating edge value (same with auto-drac)
     padding = int((100 - out)/2)
     x = np.pad(imgs, ((0, ), (0, ), (padding, ), (padding, )), mode='edge')
 
-    cropped = random_crop(x)
+    cropped = random_crop(x, mode=mode)
 
     return cropped
 
@@ -259,53 +304,82 @@ if __name__ == '__main__':
         tot = round((1e5 * s)/60,1)
         return round(s,3),tot
 
-    x = np.load('data_sample.npy',allow_pickle=True)
-    x = np.concatenate([x,x,x],1)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # x = np.load('data_sample.npy',allow_pickle=True)
+    # x = np.concatenate([x,x,x],1)
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #
+    # x = torch.from_numpy(x).to(device)
+    # x = x.float() / 255.
+    #
+    # # crop
+    # t = now()
+    # random_crop(x.cpu().numpy(),64)
+    # s1,tot1 = secs(t)
+    # # grayscale
+    # t = now()
+    # random_grayscale(x,p=.5)
+    # s2,tot2 = secs(t)
+    # # normal cutout
+    # t = now()
+    # random_cutout(x.cpu().numpy(),10,30)
+    # s3,tot3 = secs(t)
+    # # color cutout
+    # t = now()
+    # random_cutout_color(x.cpu().numpy(),10,30)
+    # s4,tot4 = secs(t)
+    # # flip
+    # t = now()
+    # random_flip(x,p=.5)
+    # s5,tot5 = secs(t)
+    # # rotate
+    # t = now()
+    # random_rotation(x,p=.5)
+    # s6,tot6 = secs(t)
+    # # rand conv
+    # t = now()
+    # random_convolution(x)
+    # s7,tot7 = secs(t)
+    # # rand color jitter
+    # t = now()
+    # random_color_jitter(x)
+    # s8,tot8 = secs(t)
+    #
+    # print(tabulate([['Crop', s1,tot1],
+    #                 ['Grayscale', s2,tot2],
+    #                 ['Normal Cutout', s3,tot3],
+    #                 ['Color Cutout', s4,tot4],
+    #                 ['Flip', s5,tot5],
+    #                 ['Rotate', s6,tot6],
+    #                 ['Rand Conv', s7,tot7],
+    #                 ['Color Jitter', s8,tot8]],
+    #                 headers=['Data Aug', 'Time / batch (secs)', 'Time / 100k steps (mins)']))
 
-    x = torch.from_numpy(x).to(device)
-    x = x.float() / 255.
+    import matplotlib.pyplot as plt
+    data = np.load('data_augs.npz')
+    data = data['data']
+    data = np.repeat(data, 8, axis=0)
+    cropped0 = random_crop(data, mode='align')
+    cropped1 = random_crop(data, mode='separate')
+    cropped2 = random_crop(data, mode='rgb_only')
+    cropped3 = random_crop(data, mode='depth_only')
+    idx = 4
+    plt.subplot(421)
+    plt.imshow(cropped0[idx, :3].transpose(1, 2, 0))
+    plt.subplot(422)
+    plt.imshow(cropped0[idx, 3][None].transpose(1, 2, 0))
 
-    # crop
-    t = now()
-    random_crop(x.cpu().numpy(),64)
-    s1,tot1 = secs(t)
-    # grayscale 
-    t = now()
-    random_grayscale(x,p=.5)
-    s2,tot2 = secs(t)
-    # normal cutout 
-    t = now()
-    random_cutout(x.cpu().numpy(),10,30)
-    s3,tot3 = secs(t)
-    # color cutout 
-    t = now()
-    random_cutout_color(x.cpu().numpy(),10,30)
-    s4,tot4 = secs(t)
-    # flip 
-    t = now()
-    random_flip(x,p=.5)
-    s5,tot5 = secs(t)
-    # rotate 
-    t = now()
-    random_rotation(x,p=.5)
-    s6,tot6 = secs(t)
-    # rand conv 
-    t = now()
-    random_convolution(x)
-    s7,tot7 = secs(t)
-    # rand color jitter 
-    t = now()
-    random_color_jitter(x)
-    s8,tot8 = secs(t)
-    
-    print(tabulate([['Crop', s1,tot1], 
-                    ['Grayscale', s2,tot2], 
-                    ['Normal Cutout', s3,tot3], 
-                    ['Color Cutout', s4,tot4], 
-                    ['Flip', s5,tot5], 
-                    ['Rotate', s6,tot6], 
-                    ['Rand Conv', s7,tot7], 
-                    ['Color Jitter', s8,tot8]], 
-                    headers=['Data Aug', 'Time / batch (secs)', 'Time / 100k steps (mins)']))
+    plt.subplot(423)
+    plt.imshow(cropped1[idx, :3].transpose(1, 2, 0))
+    plt.subplot(424)
+    plt.imshow(cropped1[idx, 3][None].transpose(1, 2, 0))
 
+    plt.subplot(425)
+    plt.imshow(cropped2[idx, :3].transpose(1, 2, 0))
+    plt.subplot(426)
+    plt.imshow(cropped2[idx, 3][None].transpose(1, 2, 0))
+
+    plt.subplot(427)
+    plt.imshow(cropped3[idx, :3].transpose(1, 2, 0))
+    plt.subplot(428)
+    plt.imshow(cropped3[idx, 3][None].transpose(1, 2, 0))
+    plt.show()
