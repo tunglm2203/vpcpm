@@ -264,6 +264,7 @@ class RadSacAgent(object):
         latent_dim=128,
         data_augs = '',
         padding_random_crop=False,
+        crop_type='align'
     ):
         self.device = device
         self.discount = discount
@@ -281,8 +282,12 @@ class RadSacAgent(object):
 
         self.augs_funcs = {}
 
+        if padding_random_crop:
+            crop_func = lambda imgs: rad.padding_random_crop(imgs, mode=crop_type)
+        else:
+            crop_func = lambda imgs: rad.random_crop(imgs, mode=crop_type)
         aug_to_func = {
-                'crop':rad.padding_random_crop if padding_random_crop else rad.random_crop,
+                'crop': crop_func,
                 'grayscale':rad.random_grayscale,
                 'cutout':rad.random_cutout,
                 'cutout_color':rad.random_cutout_color,

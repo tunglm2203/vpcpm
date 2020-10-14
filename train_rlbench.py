@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('--task_name', default='swingup')
     parser.add_argument('--pre_transform_image_size', default=100, type=int)
 
+    parser.add_argument('--crop_type', default='align', type=str)
     parser.add_argument('--padding_random_crop', default=False, action='store_true')
     parser.add_argument('--use_depth', default=False, action='store_true')
     parser.add_argument('--use_rgb', default=False, action='store_true')
