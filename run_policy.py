@@ -84,7 +84,8 @@ def get_args_from_checkpoint(path):
 
 def update_args(src_args_dict, des_args):
     if des_args.seed is None:
-        args.__dict__["seed"] = np.random.randint(1, 1000000)
+        args.seed = np.random.randint(1, 1000000)
+        print('[INFO] Seed: ', args.seed)
 
     if args.step is None:
         all_ckpt_actors = glob.glob(os.path.join(des_args.dir, 'model', 'actor_*'))
