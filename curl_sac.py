@@ -9,7 +9,7 @@ import utils
 from encoder import make_encoder
 import data_augs as rad 
 
-LOG_FREQ = 10000
+LOG_FREQ = 10000000
 
         
 def gaussian_logprob(noise, log_std):
@@ -264,7 +264,8 @@ class RadSacAgent(object):
         latent_dim=128,
         data_augs = '',
         padding_random_crop=False,
-        crop_type='align'
+        crop_type='align',
+        debug=False
     ):
         self.device = device
         self.discount = discount
@@ -279,13 +280,21 @@ class RadSacAgent(object):
         self.detach_encoder = detach_encoder
         self.encoder_type = encoder_type
         self.data_augs = data_augs
+        self.debug = debug
 
         self.augs_funcs = {}
 
         if padding_random_crop:
             crop_func = lambda imgs: rad.padding_random_crop(imgs, mode=crop_type)
+            if self.debug:
+                print('[INFO] cropping version: ', rad.padding_random_crop)
+                print('[INFO] type of cropping: ', crop_type)
         else:
             crop_func = lambda imgs: rad.random_crop(imgs, mode=crop_type)
+            if self.debug:
+                print('[INFO] cropping version: ', rad.random_crop)
+                print('[INFO] type of cropping: ', crop_type)
+
         aug_to_func = {
                 'crop': crop_func,
                 'grayscale':rad.random_grayscale,
