@@ -8,6 +8,7 @@ import os
 
 import torch
 import utils
+from tqdm import tqdm
 from train_rlbench import make_agent
 
 
@@ -22,6 +23,7 @@ def parse_args():
     parser.add_argument('--render', default=False, action='store_true')
 
     # environment
+    parser.add_argument('--crop_type', default='align', type=str)
     parser.add_argument('--domain_name', default='panda')
     parser.add_argument('--task_name', default='reach_target-state-v0')
     parser.add_argument('--agent', default='rad_sac', type=str)
@@ -167,7 +169,7 @@ def main(args):
     start_time = time.time()
 
     success_rate = 0
-    for i in range(n_tests):
+    for i in tqdm(range(n_tests)):
         obs = env.reset()
         done, info = False, {}
         episode_reward = 0
