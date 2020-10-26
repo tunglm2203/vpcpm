@@ -18,16 +18,22 @@ def speedtest(env, n_steps=100000, framework=None, summary=dict()):
         a_dim = env.action_space.shape[0]
         a_rand = np.random.uniform(-1., 1., a_dim)
     start = time.time()
+    start_exclude_reset = start
+    dur_exclude_reset = 0
     for i in tqdm(range(n_steps)):
         _, _, d, _ = env.step(a_rand)
         if d:
+            dur_exclude_reset += (time.time() - start_exclude_reset)
             env.reset()
+            start_exclude_reset = time.time()
 
     duration = time.time() - start
     time_per_step = duration/n_steps
+    time_per_step_ex_reset = dur_exclude_reset/n_steps
 
     summary.update(
         dict(time_per_step=time_per_step,
+             time_per_step_ex_reset=time_per_step_ex_reset,
              duration=duration)
     )
     del(env)
@@ -76,8 +82,8 @@ if __name__ == '__main__':
     env_args=dict(
         rlbench=dict(
             render=False,
-            use_rgb=True,
-            use_depth=True,
+            use_rgb=False,
+            use_depth=False,
         ),
         gym=dict(),
         dmcontrol=dict(
@@ -97,14 +103,14 @@ if __name__ == '__main__':
 
     env_ut = dict(
         # rlbench=['reach_target-state-v0', 'reach_target-vision-v0', 'push_button-state-v0', 'push_button-vision-v0'],
-        rlbench=['reach_target-vision-v0'],
+        rlbench=['reach_target-state-v0'],
         # rlbench=[],
-        # gym=['FetchReach-v1', 'FetchPush-v1', 'FetchPickAndPlace-v1', 'FetchSlide-v1'],
-        gym=[],
-        # dmcontrol=[['cartpole', 'swingup'], ['finger', 'spin'], ['reacher', 'easy'], ['cheetah', 'run']],
-        dmcontrol=[],
-        # procgen=['bigfish', 'coinrun', 'starpilot', 'bossfight'],
-        procgen=[]
+        gym=['FetchReach-v1', 'FetchPush-v1', 'FetchPickAndPlace-v1', 'FetchSlide-v1'],
+        # gym=[],
+        dmcontrol=[['cartpole', 'swingup'], ['finger', 'spin'], ['reacher', 'easy'], ['cheetah', 'run']],
+        # dmcontrol=[],
+        procgen=['bigfish', 'coinrun', 'starpilot', 'bossfight'],
+        # procgen=[]
     )
 
     dir_name = 'speed_results'
@@ -139,6 +145,7 @@ if __name__ == '__main__':
     i = 0
     for framework in framework_ut:
         for env_name in env_ut[framework]:
-            print('Framework: %20s, Env: %30s, time/step: %.5f' % (framework, env_name, all_summaries[i]['time_per_step']))
+            print('Framework: %10s, Env: %30s, time/step (incl. reset): %.5f, time/step (incl. reset): %.5f' %
+                  (framework, env_name, all_summaries[i]['time_per_step'], all_summaries[i]['time_per_step_ex_reset']))
             i += 1
 
