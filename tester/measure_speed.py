@@ -145,7 +145,7 @@ if __name__ == '__main__':
     i = 0
     for framework in framework_ut:
         for env_name in env_ut[framework]:
-            print('Framework: %10s, Env: %30s, time/step (incl. reset): %.5f, time/step (incl. reset): %.5f' %
+            print('Framework: %10s, Env: %30s, time/step (incl. reset): %.5f, time/step (excl. reset): %.5f' %
                   (framework, env_name, all_summaries[i]['time_per_step'], all_summaries[i]['time_per_step_ex_reset']))
             i += 1
 
