@@ -10,6 +10,7 @@ import time
 import json
 import dmc2gym
 import copy
+import glob
 
 import utils
 from logger import Logger
@@ -23,6 +24,9 @@ from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    # pre-trained encoder
+    parser.add_argument('--pretrained', default=None, type=str)
+    parser.add_argument('--step', default=-1, type=int)
     # environment
     parser.add_argument('--domain_name', default='cartpole')
     parser.add_argument('--task_name', default='swingup')
@@ -68,6 +72,7 @@ def parse_args():
     parser.add_argument('--alpha_beta', default=0.5, type=float)
     # misc
     parser.add_argument('--seed', default=1, type=int)
+    parser.add_argument('--exp', default='exp', type=str)
     parser.add_argument('--work_dir', default='.', type=str)
     parser.add_argument('--save_tb', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
@@ -76,7 +81,6 @@ def parse_args():
     parser.add_argument('--detach_encoder', default=False, action='store_true')
     # data augs
     parser.add_argument('--data_augs', default='crop', type=str)
-
 
     parser.add_argument('--log_interval', default=100, type=int)
     args = parser.parse_args()
@@ -148,7 +152,7 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
     L.dump(step)
 
 
-def make_agent(obs_shape, action_shape, args, device):
+def make_agent(obs_shape, action_shape, args, device, pretrained_path=None):
     if args.agent == 'rad_sac':
         return RadSacAgent(
             obs_shape=obs_shape,
@@ -177,11 +181,23 @@ def make_agent(obs_shape, action_shape, args, device):
             log_interval=args.log_interval,
             detach_encoder=args.detach_encoder,
             latent_dim=args.latent_dim,
-            data_augs=args.data_augs
-
+            data_augs=args.data_augs,
+            pretrained_path=pretrained_path,
         )
     else:
         assert 'agent is not supported: %s' % args.agent
+
+
+def get_pretrained_path(model_dir, step):
+    model_dir = os.path.join(model_dir, 'model')
+    if step == -1:
+        all_ckpt_actors = glob.glob(os.path.join(model_dir, 'actor_*'))
+        ckpt_step = []
+        for ckpt in all_ckpt_actors:
+            ckpt_step.append(int(ckpt.split('/')[-1].split('.')[0].split('_')[-1]))
+        step = max(ckpt_step)
+
+    return '%s/critic_%s.pt' % (model_dir, step)
 
 def main():
     args = parse_args()
@@ -213,13 +229,13 @@ def main():
     ts = time.strftime("%m-%d-%H-%M-%S", ts)
     env_name = args.domain_name + '-' + args.task_name
     if args.encoder_type == 'pixel':
-        exp_name = env_name + '-' + '-im' + str(args.image_size) + \
+        exp_name = env_name + '-' + '-img' + str(args.image_size) + \
                    '-b' + str(args.batch_size) + '-s' + str(args.seed) + \
-                   '-' + args.encoder_type + '-' + ts
+                   '-' + args.encoder_type + '-' + args.exp + '-' + ts
     elif args.encoder_type == 'identity':
         exp_name = env_name + '-' + '-state' + \
                    '-b' + str(args.batch_size) + '-s' + str(args.seed) + \
-                   '-' + args.encoder_type + '-' + ts
+                   '-' + args.encoder_type + '-' + args.exp + '-' + ts
     else:
         raise NotImplementedError('Not support: {}'.format(args.encoder_type))
 
@@ -255,11 +271,14 @@ def main():
         image_size=args.image_size,
     )
 
+    pretrained_path = get_pretrained_path(args.pretrained, args.step) \
+        if args.pretrained is not None else None
     agent = make_agent(
         obs_shape=obs_shape,
         action_shape=action_shape,
         args=args,
-        device=device
+        device=device,
+        pretrained_path=pretrained_path
     )
 
     L = Logger(args.work_dir, use_tb=args.save_tb)

@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 import math
+import os
+import glob
 
 import utils
 from encoder import make_encoder
@@ -231,6 +233,29 @@ class CURL(nn.Module):
         logits = logits - torch.max(logits, 1)[0][:, None]
         return logits
 
+def init_encoder(model, pretrained_path, device):
+    # Load pre-trained model (include encoder & MLP)
+    pretrained_model = torch.load(pretrained_path, map_location=device)
+
+    # Filter keys of encoder in current model
+    encoder_dict = []
+    for k in model.state_dict().keys():
+        if 'encoder' in k:
+            encoder_dict.append(k)
+
+    # Filter keys & values of encoder part from pre-trained model
+    pretrained_dict = {k: v for k, v in pretrained_model.items() if k in encoder_dict}
+
+    # Get keys & values of current model
+    actor_cur_dict = model.state_dict()
+
+    # Update values as keys for current model
+    actor_cur_dict.update(pretrained_dict)
+
+    # Load state dict into current model
+    model.load_state_dict(actor_cur_dict)
+
+
 class RadSacAgent(object):
     """RAD with SAC."""
     def __init__(
@@ -264,6 +289,7 @@ class RadSacAgent(object):
         latent_dim=128,
         data_augs = '',
         padding_random_crop=False,
+        pretrained_path=None,
     ):
         self.device = device
         self.discount = discount
@@ -312,6 +338,9 @@ class RadSacAgent(object):
             obs_shape, action_shape, hidden_dim, encoder_type,
             encoder_feature_dim, num_layers, num_filters
         ).to(device)
+
+        if pretrained_path is not None:
+            init_encoder(self.critic, pretrained_path, self.device)
 
         self.critic_target.load_state_dict(self.critic.state_dict())
 
