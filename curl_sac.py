@@ -11,7 +11,7 @@ import utils
 from encoder import make_encoder
 import data_augs as rad 
 
-LOG_FREQ = 10000
+LOG_FREQ = 100000000
 
         
 def gaussian_logprob(noise, log_std):
@@ -413,7 +413,7 @@ class RadSacAgent(object):
             mu, pi, _, _ = self.actor(obs, compute_log_pi=False)
             return pi.cpu().data.numpy().flatten()
 
-    def update_critic(self, obs, action, reward, next_obs, not_done, L, step):
+    def update_critic(self, obs, action, reward, next_obs, not_done, L, step, env_step):
         with torch.no_grad():
             _, policy_action, log_pi, _ = self.actor(next_obs)
             target_Q1, target_Q2 = self.critic_target(next_obs, policy_action)
@@ -427,7 +427,7 @@ class RadSacAgent(object):
         critic_loss = F.mse_loss(current_Q1,
                                  target_Q) + F.mse_loss(current_Q2, target_Q)
         if step % self.log_interval == 0:
-            L.log('train_critic/loss', critic_loss, step)
+            L.log('train_critic/loss', critic_loss, env_step)
 
 
         # Optimize the critic
@@ -437,7 +437,7 @@ class RadSacAgent(object):
 
         self.critic.log(L, step, log_freq=LOG_FREQ)
 
-    def update_actor_and_alpha(self, obs, L, step):
+    def update_actor_and_alpha(self, obs, L, step, env_step):
         # detach encoder, so we don't update it with the actor loss
         _, pi, log_pi, log_std = self.actor(obs, detach_encoder=True)
         actor_Q1, actor_Q2 = self.critic(obs, pi, detach_encoder=True)
@@ -446,12 +446,12 @@ class RadSacAgent(object):
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
 
         if step % self.log_interval == 0:
-            L.log('train_actor/loss', actor_loss, step)
-            L.log('train_actor/target_entropy', self.target_entropy, step)
+            L.log('train_actor/loss', actor_loss, env_step)
+            L.log('train_actor/target_entropy', self.target_entropy, env_step)
         entropy = 0.5 * log_std.shape[1] * \
             (1.0 + np.log(2 * np.pi)) + log_std.sum(dim=-1)
         if step % self.log_interval == 0:                                    
-            L.log('train_actor/entropy', entropy.mean(), step)
+            L.log('train_actor/entropy', entropy.mean(), env_step)
 
         # optimize the actor
         self.actor_optimizer.zero_grad()
@@ -464,8 +464,8 @@ class RadSacAgent(object):
         alpha_loss = (self.alpha *
                       (-log_pi - self.target_entropy).detach()).mean()
         if step % self.log_interval == 0:
-            L.log('train_alpha/loss', alpha_loss, step)
-            L.log('train_alpha/value', self.alpha, step)
+            L.log('train_alpha/loss', alpha_loss, env_step)
+            L.log('train_alpha/value', self.alpha, env_step)
         alpha_loss.backward()
         self.log_alpha_optimizer.step()
 
@@ -495,19 +495,19 @@ class RadSacAgent(object):
             L.log('train/curl_loss', loss, step)
 
 
-    def update(self, replay_buffer, L, step):
+    def update(self, replay_buffer, L, step, env_step):
         if self.encoder_type == 'pixel':
             obs, action, reward, next_obs, not_done = replay_buffer.sample_rad(self.augs_funcs)
         else:
             obs, action, reward, next_obs, not_done = replay_buffer.sample_proprio()
     
         if step % self.log_interval == 0:
-            L.log('train/batch_reward', reward.mean(), step)
+            L.log('train/batch_reward', reward.mean(), env_step)
 
-        self.update_critic(obs, action, reward, next_obs, not_done, L, step)
+        self.update_critic(obs, action, reward, next_obs, not_done, L, step, env_step)
 
         if step % self.actor_update_freq == 0:
-            self.update_actor_and_alpha(obs, L, step)
+            self.update_actor_and_alpha(obs, L, step, env_step)
 
         if step % self.critic_target_update_freq == 0:
             utils.soft_update_params(

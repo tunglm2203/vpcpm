@@ -87,7 +87,7 @@ def parse_args():
     return args
 
 
-def evaluate(env, agent, video, num_episodes, L, step, args):
+def evaluate(env, agent, video, num_episodes, L, step, env_step, args):
     all_ep_rewards = []
 
     def run_eval_loop(sample_stochastically=True):
@@ -118,15 +118,15 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
                 episode_reward += reward
 
             video.save('%d.mp4' % step)
-            L.log('eval/' + prefix + 'episode_reward', episode_reward, step)
+            L.log('eval/' + prefix + 'episode_reward', episode_reward, env_step)
             all_ep_rewards.append(episode_reward)
         
-        L.log('eval/' + prefix + 'eval_time', time.time()-start_time , step)
+        L.log('eval/' + prefix + 'eval_time', time.time()-start_time , env_step)
         mean_ep_reward = np.mean(all_ep_rewards)
         best_ep_reward = np.max(all_ep_rewards)
         std_ep_reward = np.std(all_ep_rewards)
-        L.log('eval/' + prefix + 'mean_episode_reward', mean_ep_reward, step)
-        L.log('eval/' + prefix + 'best_episode_reward', best_ep_reward, step)
+        L.log('eval/' + prefix + 'mean_episode_reward', mean_ep_reward, env_step)
+        L.log('eval/' + prefix + 'best_episode_reward', best_ep_reward, env_step)
 
         filename = args.work_dir + '/' + args.domain_name + '--'+args.task_name + '-' + args.data_augs + '--s' + str(args.seed) + '--eval_scores.npy'
         key = args.domain_name + '-' + args.task_name + '-' + args.data_augs
@@ -149,7 +149,7 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
         np.save(filename,log_data)
 
     run_eval_loop(sample_stochastically=False)
-    L.dump(step)
+    L.dump(env_step)
 
 
 def make_agent(obs_shape, action_shape, args, device, pretrained_path=None):
@@ -292,12 +292,13 @@ def main():
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
 
+    env_step = 0
     for step in tqdm(range(args.num_train_steps)):
         # evaluate agent periodically
 
         if step % args.eval_freq == 0:
-            L.log('eval/episode', episode, step)
-            evaluate(env, agent, video, args.num_eval_episodes, L, step,args)
+            L.log('eval/episode', episode, env_step)
+            evaluate(env, agent, video, args.num_eval_episodes, L, step, env_step, args)
             if args.save_model:
                 agent.save(model_dir, step)
             if args.save_buffer:
@@ -306,11 +307,11 @@ def main():
         if done:
             if step > 0:
                 if step % args.log_interval == 0:
-                    L.log('train/duration', time.time() - start_time, step)
-                    L.dump(step)
+                    L.log('train/duration', time.time() - start_time, env_step)
+                    L.dump(env_step)
                 start_time = time.time()
             if step % args.log_interval == 0:
-                L.log('train/episode_reward', episode_reward, step)
+                L.log('train/episode_reward', episode_reward, env_step)
 
             obs = env.reset()
             done = False
@@ -318,7 +319,7 @@ def main():
             episode_step = 0
             episode += 1
             if step % args.log_interval == 0:
-                L.log('train/episode', episode, step)
+                L.log('train/episode', episode, env_step)
 
         # sample action for data collection
         if step < args.init_steps:
@@ -334,7 +335,7 @@ def main():
         if step >= args.init_steps:
             num_updates = 1
             for _ in range(num_updates):
-                agent.update(replay_buffer, L, step)
+                agent.update(replay_buffer, L, step, env_step)
 
         next_obs, reward, done, _ = env.step(action)
 
@@ -347,6 +348,7 @@ def main():
 
         obs = next_obs
         episode_step += 1
+        env_step += 1 * args.action_repeat
 
 
 if __name__ == '__main__':
