@@ -199,6 +199,28 @@ def get_pretrained_path(model_dir, step):
 
     return '%s/critic_%s.pt' % (model_dir, step)
 
+
+def make_logdir(args):
+    # make directory
+    ts = time.localtime()
+    ts = time.strftime("%m-%d-%H-%M-%S", ts)
+    env_name = args.domain_name + '-' + args.task_name
+    if args.encoder_type == 'pixel':
+        exp_name = env_name + '/' + 'img' + str(args.image_size) + \
+                   '-b' + str(args.batch_size) + '-s' + str(args.seed) + \
+                   '-' + args.encoder_type + '-' + args.exp + '-' + ts
+    elif args.encoder_type == 'identity':
+        exp_name = env_name + '/' + 'state' + \
+                   '-b' + str(args.batch_size) + '-s' + str(args.seed) + \
+                   '-' + args.encoder_type + '-' + args.exp + '-' + ts
+    else:
+        raise NotImplementedError('Not support: {}'.format(args.encoder_type))
+
+    args.work_dir = args.work_dir + '/' + exp_name
+
+    utils.make_dir(args.work_dir)
+
+
 def main():
     args = parse_args()
     if args.seed == -1: 
@@ -225,23 +247,7 @@ def main():
         env = utils.FrameStack(env, k=args.frame_stack)
     
     # make directory
-    ts = time.localtime()
-    ts = time.strftime("%m-%d-%H-%M-%S", ts)
-    env_name = args.domain_name + '-' + args.task_name
-    if args.encoder_type == 'pixel':
-        exp_name = env_name + '-' + '-img' + str(args.image_size) + \
-                   '-b' + str(args.batch_size) + '-s' + str(args.seed) + \
-                   '-' + args.encoder_type + '-' + args.exp + '-' + ts
-    elif args.encoder_type == 'identity':
-        exp_name = env_name + '-' + '-state' + \
-                   '-b' + str(args.batch_size) + '-s' + str(args.seed) + \
-                   '-' + args.encoder_type + '-' + args.exp + '-' + ts
-    else:
-        raise NotImplementedError('Not support: {}'.format(args.encoder_type))
-
-    args.work_dir = args.work_dir + '/'  + exp_name
-
-    utils.make_dir(args.work_dir)
+    make_logdir(args)
     video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
     model_dir = utils.make_dir(os.path.join(args.work_dir, 'model'))
     buffer_dir = utils.make_dir(os.path.join(args.work_dir, 'buffer'))
