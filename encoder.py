@@ -68,6 +68,10 @@ class PixelEncoder(nn.Module):
         h_norm = self.ln(h_fc)
         self.outputs['ln'] = h_norm
 
+        #TUNG: Check detach here
+        # if detach:
+        #     h_norm = h_norm.detach()
+
         if self.output_logits:
             out = h_norm
         else:
@@ -88,8 +92,8 @@ class PixelEncoder(nn.Module):
 
         for k, v in self.outputs.items():
             L.log_histogram('train_encoder/%s_hist' % k, v, step)
-            if len(v.shape) > 2:
-                L.log_image('train_encoder/%s_img' % k, v[0], step)
+            # if len(v.shape) > 2:
+            #     L.log_image('train_encoder/%s_img' % k, v[0], step)
 
         for i in range(self.num_layers):
             L.log_param('train_encoder/conv%s' % (i + 1), self.convs[i], step)
