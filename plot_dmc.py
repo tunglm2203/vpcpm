@@ -11,7 +11,7 @@ from baselines.common import plot_util
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dir', type=str, nargs='+')
-parser.add_argument('--radius', type=int, default=1)
+parser.add_argument('--radius', type=int, default=0)
 parser.add_argument('--range', type=int, default=-1, help='Number of transitions want to plot')
 parser.add_argument('--legend', type=str, default='', nargs='+')
 parser.add_argument('--shaded_std', type=bool, default=True)
@@ -105,8 +105,8 @@ def plot_multiple_results(directories):
         assert xs.shape == ys.shape
 
         usex = xs[0]
-        ymean = np.mean(ys, axis=0)
-        ystd = np.std(ys, axis=0)
+        ymean = np.nanmean(ys, axis=0)
+        ystd = np.nanstd(ys, axis=0)
         ystderr = ystd / np.sqrt(len(ys))
         plt.plot(usex, ymean, label='config')
         if args.shaded_err:
