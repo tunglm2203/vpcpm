@@ -95,7 +95,7 @@ def evaluate(env, agent, video, num_episodes, L, step, env_step, args):
         prefix = 'stochastic_' if sample_stochastically else ''
         for i in range(num_episodes):
             obs = env.reset()
-            video.init(enabled=(i == 0))
+            # video.init(enabled=(i == 0))
             done = False
             episode_reward = 0
             while not done:
@@ -119,10 +119,10 @@ def evaluate(env, agent, video, num_episodes, L, step, env_step, args):
                         else:
                             action = agent.select_action(obs)
                 obs, reward, done, _ = env.step(action)
-                video.record(env)
+                # video.record(env)
                 episode_reward += reward
 
-            video.save('%d.mp4' % step)
+            # video.save('%d.mp4' % step)
             L.log('eval/' + prefix + 'episode_reward', episode_reward, env_step)
             all_ep_rewards.append(episode_reward)
         
