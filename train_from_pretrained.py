@@ -304,6 +304,7 @@ def main():
         # evaluate agent periodically
 
         if step % args.eval_freq == 0:
+            print('[INFO] Experiment: ', args.exp)
             L.log('eval/episode', episode, env_step)
             evaluate(env, agent, video, args.num_eval_episodes, L, step, env_step, args)
             if args.save_model:
