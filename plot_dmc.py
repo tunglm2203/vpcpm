@@ -93,15 +93,15 @@ def plot_multiple_results(directories):
         xs, ys = zip(*data)
         n_experiments = len(xs)
 
-        xs, ys = pad(xs), pad(ys)
+        # xs, ys = pad(xs), pad(ys)
         if args.range != -1:
             _xs = []
             _ys = []
             for k in range(n_experiments):
                 found_idxes = np.argwhere(xs[k] >= args.range)
-                # assert len(found_idxes) > 0, "The last index is {}, ".format(xs[k][-1])
                 if len(found_idxes) == 0:
-                    print("[WARNING] Last index is {}, consider choose smaller range".format(xs[k][-1]))
+                    print("[WARNING] Last index is {}, consider choose smaller range in {}".format(
+                        xs[k][-1], directories[i]))
                     _xs.append(xs[k][:])
                     _ys.append(ys[k][:])
                 else:
@@ -110,7 +110,7 @@ def plot_multiple_results(directories):
                     _ys.append(ys[k][:range_idx])
             xs = _xs
             ys = _ys
-        # xs, ys = pad(xs), pad(ys)
+        xs, ys = pad(xs), pad(ys)
         xs, ys = np.array(xs), np.array(ys)
         assert xs.shape == ys.shape
 
