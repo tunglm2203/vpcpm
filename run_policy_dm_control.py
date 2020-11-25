@@ -106,11 +106,11 @@ def update_args(src_args_dict, des_args):
         des_args.__dict__[arg] = src_args_dict[arg]
     return des_args
 
-def imshow(obs):
+def imshow(obs, pause=0.001):
     plt.imshow(obs)
     plt.axis('off')
     plt.tight_layout()
-    plt.pause(0.1)
+    plt.pause(pause)
     plt.show(block=False)
 
 def render(obs, stack_frame=1):
@@ -118,6 +118,12 @@ def render(obs, stack_frame=1):
     imshow(img)
 
 
+"""
+Example to run:
+python collect_demonstrations.py --dir ./logs/../pixel-rgb-crop-s1-2020_10_12_22_46_25 --step 100000 \
+    --domain_name cheetah --task_name run --render
+if `step` is not provided, it takes the last step
+"""
 def main(args):
     ckpt_args = get_args_from_checkpoint(args.dir)
     args = update_args(ckpt_args, args)
