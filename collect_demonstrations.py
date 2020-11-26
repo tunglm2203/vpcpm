@@ -123,7 +123,8 @@ def make_logdir(args):
     # make directory
     env_name = args.domain_name + '-' + args.task_name
     if args.encoder_type == 'pixel':
-        exp_name = env_name + '/' + 'img' + str(args.image_size) + '-s' + str(args.seed)
+        exp_name = env_name + '/' + 'img' + str(args.image_size) + '-s' + str(args.seed) + '-' \
+            + str(args.n_episodes) + 'eps'
     elif args.encoder_type == 'identity':
         exp_name = env_name + '/' + 'state' + '-s' + str(args.seed) + '-' + args.encoder_type
     else:
