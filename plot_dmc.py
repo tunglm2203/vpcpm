@@ -14,6 +14,7 @@ parser.add_argument('--dir', type=str, nargs='+')
 parser.add_argument('--radius', type=int, default=0)
 parser.add_argument('--range', type=int, default=-1, help='Number of transitions want to plot')
 parser.add_argument('--legend', type=str, default='', nargs='+')
+parser.add_argument('--title', type=str, default='')
 parser.add_argument('--shaded_std', type=bool, default=True)
 parser.add_argument('--shaded_err', type=bool, default=False)
 parser.add_argument('--train_test', action='store_true')
@@ -123,9 +124,12 @@ def plot_multiple_results(directories):
             plt.fill_between(usex, ymean - ystderr, ymean + ystderr, alpha=0.4)
         if args.shaded_std:
             plt.fill_between(usex, ymean - ystd, ymean + ystd, alpha=0.2)
-        plt.title(plot_titles[i], fontsize='x-large')
+        if args.title == '':
+            plt.title(plot_titles[i], fontsize='x-large')
+        else:
+            plt.title(args.title, fontsize='x-large')
         plt.xlabel('Number of steps', fontsize='x-large')
-        plt.ylabel('Episode reward', fontsize='x-large')
+        plt.ylabel('Episode Return', fontsize='x-large')
 
     plt.tight_layout()
     if args.legend != '':
@@ -135,8 +139,8 @@ def plot_multiple_results(directories):
     else:
         legend_name = [directories[i].split('/')[-1] for i in range(len(directories))]
 
-    plt.legend(legend_name, loc='best', fontsize='x-large')
-    # plt.legend(legend_name, loc='upper left', fontsize='x-large')
+    #plt.legend(legend_name, loc='best', fontsize='x-large')
+    plt.legend(legend_name, loc='lower right', fontsize='x-large')
     plt.show()
 
 if __name__ == '__main__':
