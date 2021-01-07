@@ -135,6 +135,8 @@ def plot_multiple_results(directories):
             plt.title(args.title, fontsize='x-large')
         plt.xlabel('Number of steps', fontsize='x-large')
         plt.ylabel('Episode Return', fontsize='x-large')
+    
+    plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
 
     plt.tight_layout()
     if args.legend != '':
