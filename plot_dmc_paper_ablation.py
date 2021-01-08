@@ -126,10 +126,7 @@ def plot_multiple_results(directories):
         ymean = np.nanmean(ys, axis=0)
         ystd = np.nanstd(ys, axis=0)
         ystderr = ystd / np.sqrt(len(ys))
-        if i == 0:
-            plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='--')
-        else:
-            plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='-')
+        plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='-')
         if args.shaded_err:
             plt.fill_between(usex, ymean - ystderr, ymean + ystderr, alpha=0.4, color=color_table[i])
         if args.shaded_std:
