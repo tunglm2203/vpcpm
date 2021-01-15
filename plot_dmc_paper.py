@@ -20,8 +20,10 @@ parser.add_argument('--shaded_err', type=bool, default=False)
 parser.add_argument('--train_test', action='store_true')
 args = parser.parse_args()
 
+color_table = ['k', '#ff7c00', '#e8000b', '#1ac938', '#8b2be2', '#023eff', '#9f4800', '#f14cc1',
+               '#a3a3a3', '#ffc400', '#00d7ff']
+# Color: den, cam, do, xanh la, tim, xanh nuoc bien
 
-color_table = ['k', 'b', 'g', 'r', 'c', 'm', 'y']
 
 def pad(xs, value=np.nan):
     maxlen = np.max([len(x) for x in xs])
@@ -83,9 +85,9 @@ def plot_multiple_results(directories):
     x_key = 'step'
     y_key = 'mean_episode_reward'
 
-    rc = {'axes.facecolor': '#f7f7f7',
-          'axes.grid': True,
-          }
+    # rc = {'axes.facecolor': '#f7f7f7'}
+    rc = {'axes.facecolor': 'white'}
+    my_x_lim = []
     plt.rcParams.update(rc)
 
     collect_data = []
@@ -123,26 +125,30 @@ def plot_multiple_results(directories):
         assert xs.shape == ys.shape
 
         usex = xs[0]
+        my_x_lim.append(usex[-1])
         ymean = np.nanmean(ys, axis=0)
         ystd = np.nanstd(ys, axis=0)
         ystderr = ystd / np.sqrt(len(ys))
         if i == 0:
             plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='--')
+        elif i == 4 or i == 5:
+            plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='-', linewidth=2)
         else:
             plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='-')
         if args.shaded_err:
             plt.fill_between(usex, ymean - ystderr, ymean + ystderr, alpha=0.4, color=color_table[i])
         if args.shaded_std:
-            plt.fill_between(usex, ymean - ystd, ymean + ystd, alpha=0.2, color=color_table[i])
+            plt.fill_between(usex, ymean - ystd, ymean + ystd, alpha=0.15, color=color_table[i])
         if args.title == '':
             plt.title(plot_titles[i], fontsize='x-large')
         else:
             plt.title(args.title, fontsize=20)
-        plt.xlabel('Environment steps', fontsize='x-large')
-        plt.ylabel('Episode Return', fontsize='x-large')
+        plt.xlabel('Environment steps', fontsize=14)
+        plt.ylabel('Episode Return', fontsize=14)
 
-    plt.grid(True, which='major', color='grey', linestyle='--')
+    # plt.grid(True, which='major', color='grey', linestyle='--')
     plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+    plt.tick_params(direction='in')
 
     plt.tight_layout()
     if args.legend != '':
@@ -153,8 +159,13 @@ def plot_multiple_results(directories):
         legend_name = [directories[i].split('/')[-1] for i in range(len(directories))]
 
     #plt.legend(legend_name, loc='best', fontsize='x-large')
-    plt.legend(legend_name, loc='lower right', fontsize=15, frameon=True,
-               facecolor='#f2f2f2', edgecolor='grey')
+    # plt.legend(legend_name, loc='lower right', fontsize=15, frameon=True,
+    #            facecolor='#f2f2f2', edgecolor='grey')
+    plt.legend(legend_name, loc='lower right', fontsize=14, frameon=True)
+    # my_x_lim = min(my_x_lim)
+    # my_x_lim = my_x_lim if my_x_lim < 400000 else 400000
+    plt.xlim(0, args.range)
+    plt.ylim(0, 1050)
     plt.show()
 
 if __name__ == '__main__':
