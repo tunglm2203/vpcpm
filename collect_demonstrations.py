@@ -146,6 +146,19 @@ def main(args):
     ckpt_args = get_args_from_checkpoint(args.dir)
     args = update_args(ckpt_args, args)
 
+    # Following PlaNet benchmark, also use in RAD, CURL
+    action_repeat = dict(
+        cartpole=8,
+        walker=2,
+        cheetah=4,
+        finger=2,
+        reacher=4,
+        ball_in_cup=4,
+        hopper=4,
+        fish=4,
+        pendulum=4
+    )
+
     pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
     pre_image_size = args.pre_transform_image_size
 
@@ -160,7 +173,7 @@ def main(args):
         from_pixels=(args.encoder_type == 'pixel'),
         height=pre_transform_image_size,
         width=pre_transform_image_size,
-        frame_skip=args.action_repeat
+        frame_skip=action_repeat[args.domain_name]
     )
     print('[INFO] Load environment done.')
     env.seed(args.seed)
@@ -200,6 +213,11 @@ def main(args):
 
     model_dir = os.path.join(args.dir, 'model')
     agent.load(model_dir=model_dir, step=args.step)
+
+    print('[INFO] Collecting demonstrations of {}-{}'.format(args.domain_name, args.task_name))
+    print('[INFO] Number of episodes will be collected: {}'.format(args.n_episodes))
+    print('[INFO] Number of samples will be collected: {}'.format(
+        args.n_episodes * (1000/action_repeat[args.domain_name])))
 
     n_episodes = args.n_episodes
     all_ep_rewards = []
@@ -253,6 +271,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-    torch.multiprocessing.set_start_method('spawn')
     args = parse_args()
     main(args)
