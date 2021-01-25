@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import utils
 from train_from_pretrained import make_agent
 from tqdm import tqdm
+import skimage.transform as transform
 
 
 def parse_args():
@@ -100,7 +101,8 @@ def update_args(src_args_dict, des_args):
             ckpt_step.append(int(ckpt.split('/')[-1].split('.')[0].split('_')[-1]))
         args.step = max(ckpt_step)
     assert isinstance(src_args_dict, dict), 'src_args_dict must be dictionary for paring'
-    exclude_args = ['seed', 'dir', 'work_dir', 'step', 'n_episodes', 'pretrained', 'render']
+    exclude_args = ['seed', 'dir', 'work_dir', 'step', 'n_episodes', 'pretrained', 'render',
+                    'data_augs', 'pre_transform_image_size', 'image_size']
     for arg in src_args_dict.keys():
         if arg in exclude_args or arg not in des_args.__dict__.keys():
             continue
@@ -159,7 +161,13 @@ def main(args):
         pendulum=4
     )
 
-    pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
+    # pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
+    if 'crop' in args.data_augs:
+        pre_transform_image_size = args.pre_transform_image_size
+    else:
+        # Override for policy of translation use input of cropping
+        pre_transform_image_size = args.pre_transform_image_size
+
     pre_image_size = args.pre_transform_image_size
 
     utils.set_seed_everywhere(args.seed)
@@ -235,8 +243,11 @@ def main(args):
             if args.encoder_type == 'pixel' and 'crop' in args.data_augs:
                 obs = utils.center_crop_image(obs, args.image_size)
             if args.encoder_type == 'pixel' and 'translate' in args.data_augs:
+                obs = transform.resize(obs, (obs.shape[0], 84, 84))
+                obs = (obs * 255).astype(np.uint8)
                 # first crop the center with pre_image_size
-                obs = utils.center_crop_image(obs, args.pre_transform_image_size)
+                # obs = utils.center_crop_image(obs, args.pre_transform_image_size)
+                obs = utils.center_crop_image(obs, 76)
                 # then translate cropped to center
                 obs = utils.center_translate(obs, args.image_size)
             with utils.eval_mode(agent):
@@ -277,6 +288,9 @@ def main(args):
         step=args.step,
         seed=args.seed,
         encoder_type=args.encoder_type,
+        data_augs=args.data_augs,
+        env_width=pre_transform_image_size,
+        env_height=pre_transform_image_size,
         mean_ep_reward=mean_ep_reward,
         std_ep_reward=std_ep_reward,
         best_ep_reward=best_ep_reward,
