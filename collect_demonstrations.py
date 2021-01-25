@@ -268,6 +268,23 @@ def main(args):
     print("eval/episode_reward: mean=%.4f/std=%.4f" % (mean_ep_reward, std_ep_reward))
     print("eval/best_episode_reward: %.4f" % best_ep_reward)
 
+    info = dict(
+        dir=args.dir,
+        domain_name=args.domain_name,
+        task_name=args.task_name,
+        work_dir=args.work_dir,
+        n_episodes=args.n_episodes,
+        step=args.step,
+        seed=args.seed,
+        encoder_type=args.encoder_type,
+        mean_ep_reward=mean_ep_reward,
+        std_ep_reward=std_ep_reward,
+        best_ep_reward=best_ep_reward,
+    )
+    work_dir_parent = args.work_dir.replace('buffer', '')
+
+    with open(os.path.join(work_dir_parent, 'info.json'), 'w') as f:
+        json.dump(info, f, sort_keys=True, indent=4)
 
 
 if __name__ == '__main__':
