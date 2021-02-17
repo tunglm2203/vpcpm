@@ -5,8 +5,10 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import glob2
+import matplotlib.ticker as ticker
 
 from baselines.common import plot_util
+from matplotlib.ticker import StrMethodFormatter
 
 
 parser = argparse.ArgumentParser()
@@ -14,15 +16,12 @@ parser.add_argument('--dir', type=str, nargs='+')
 parser.add_argument('--radius', type=int, default=0)
 parser.add_argument('--range', type=int, default=-1, help='Number of transitions want to plot')
 parser.add_argument('--legend', type=str, default='', nargs='+')
+parser.add_argument('--ylim', type=float, default=0)
 parser.add_argument('--title', type=str, default='')
 parser.add_argument('--shaded_std', type=bool, default=True)
 parser.add_argument('--shaded_err', type=bool, default=False)
 parser.add_argument('--train_test', action='store_true')
 args = parser.parse_args()
-
-color_table = ['k', '#ff7c00', '#e8000b', '#1ac938', '#8b2be2', '#023eff', '#9f4800', '#f14cc1',
-               '#a3a3a3', '#ffc400', '#00d7ff']
-# Color: den, cam, do, xanh la, tim, xanh nuoc bien
 
 
 def pad(xs, value=np.nan):
@@ -82,13 +81,29 @@ def get_info_env(path):
     return info
 
 def plot_multiple_results(directories):
+    # color_table = ['k', '#ff7c00', '#e8000b', '#1ac938', '#9f4800', '#8b2be2', '#023eff', '#f14cc1','#a3a3a3', '#ffc400', '#00d7ff']
+    # Color:        den,   cam,       do,        xanh la,    tim,       brown      xanh nuoc bien
+    color_table = ['#1ac938', '#ff7c00', '#e8000b', '#9f4800', '#8b2be2', '#023eff', '#f14cc1', '#a3a3a3', '#ffc400', '#00d7ff']
+    # Color:        xanh la,   cam,       do,         tim,       brown      xanh nuoc bien
+
+    # User config:
     x_key = 'step'
     y_key = 'mean_episode_reward'
+    x_last_truncated = 10000
+    rc = {'axes.facecolor': 'white',
+          'legend.fontsize': 15,
+          'axes.titlesize': 20,
+          'axes.labelsize': 20,
+          'xtick.labelsize': 12,
+          'ytick.labelsize': 12,
+          'xtick.direction': 'in',
+          'ytick.direction': 'in',
+          'axes.formatter.useoffset': False,
+          'axes.formatter.offset_threshold': 1}
 
-    # rc = {'axes.facecolor': '#f7f7f7'}
-    rc = {'axes.facecolor': 'white'}
-    my_x_lim = []
     plt.rcParams.update(rc)
+
+    fig, ax = plt.subplots()
 
     collect_data = []
     plot_titles = []
@@ -125,32 +140,45 @@ def plot_multiple_results(directories):
         assert xs.shape == ys.shape
 
         usex = xs[0]
-        my_x_lim.append(usex[-1])
         ymean = np.nanmean(ys, axis=0)
         ystd = np.nanstd(ys, axis=0)
         ystderr = ystd / np.sqrt(len(ys))
         if i == 0:
-            plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='--')
+            # plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='--')
+            plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='-')
         elif i == 4 or i == 5:
-            plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='-', linewidth=2)
+            if 'Reacher: easy' in args.title:
+                if i == 4:
+                    x, y = [], []
+                    for j in range(len(usex)):
+                        if j % 2 == 0:
+                            x.append(usex[j])
+                            y.append(ymean[j])
+                    plt.plot(x, y, label='config', color=color_table[i], linestyle='-', linewidth=2)
+                elif i == 5:
+                    x, y = [], []
+                    x.append(usex[0])
+                    y.append(ymean[0])
+                    for j in range(1, len(usex) - 1):
+                        if (j + 1) % 2 == 0:
+                            x.append(usex[j])
+                            y.append(ymean[j])
+                    x.append(usex[-1])
+                    y.append(ymean[-1])
+                    plt.plot(x, y, label='config', color=color_table[i], linestyle='-', linewidth=2)
+            else:
+                plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='-',
+                         linewidth=2)
         else:
             plt.plot(usex, ymean, label='config', color=color_table[i], linestyle='-')
+
         if args.shaded_err:
             plt.fill_between(usex, ymean - ystderr, ymean + ystderr, alpha=0.4, color=color_table[i])
         if args.shaded_std:
             plt.fill_between(usex, ymean - ystd, ymean + ystd, alpha=0.15, color=color_table[i])
-        if args.title == '':
-            plt.title(plot_titles[i], fontsize='x-large')
-        else:
-            plt.title(args.title, fontsize=20)
-        plt.xlabel('Environment steps', fontsize=14)
-        plt.ylabel('Episode Return', fontsize=14)
 
     # plt.grid(True, which='major', color='grey', linestyle='--')
-    plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
-    plt.tick_params(direction='in')
 
-    plt.tight_layout()
     if args.legend != '':
         assert len(args.legend) == len(
             directories), "Provided legend is not match with number of directories"
@@ -159,13 +187,28 @@ def plot_multiple_results(directories):
         legend_name = [directories[i].split('/')[-1] for i in range(len(directories))]
 
     #plt.legend(legend_name, loc='best', fontsize='x-large')
-    # plt.legend(legend_name, loc='lower right', fontsize=15, frameon=True,
+    # plt.legend(legend_name, loc='lower right', frameon=True,
     #            facecolor='#f2f2f2', edgecolor='grey')
-    plt.legend(legend_name, loc='lower right', fontsize=14, frameon=True)
-    # my_x_lim = min(my_x_lim)
-    # my_x_lim = my_x_lim if my_x_lim < 400000 else 400000
-    plt.xlim(0, args.range)
-    plt.ylim(0, 1050)
+    # plt.legend(legend_name, loc='lower right', frameon=True)
+    plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+
+    plt.title(args.title)
+    plt.xlabel(r'Environment steps ($\times 1e5$)')
+    plt.ylabel('Episode Return')
+
+    # ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: '{:,.1f}'.format(x / 1e5)))
+
+
+    if args.range != -1:
+        plt.xlim(0, args.range - x_last_truncated)
+    if args.ylim == 0:
+        plt.ylim(1, 1050)
+    else:
+        plt.ylim(1, args.ylim)
+    plt.tight_layout()
+    # plt.savefig('/headless/workspace/{}.pdf'.format(args.title.replace(': ', '_').replace(' ', '_').lower()))
+    plt.savefig('/mnt/hdd/tung/{}.pdf'.format(args.title.replace(': ', '_').replace(' ', '_').lower()))
     plt.show()
 
 if __name__ == '__main__':

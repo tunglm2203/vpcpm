@@ -18,6 +18,7 @@ parser.add_argument('--title', type=str, default='')
 parser.add_argument('--shaded_std', type=bool, default=True)
 parser.add_argument('--shaded_err', type=bool, default=False)
 parser.add_argument('--train_test', action='store_true')
+parser.add_argument('--score', action='store_true')
 args = parser.parse_args()
 
 
@@ -89,6 +90,8 @@ def plot_multiple_results(directories):
         plot_titles.append(plot_info)
 
     # Plot data.
+    return_means, return_medians, return_stds = [], [], []
+    exp_step_idxs = []
     for i in range(len(collect_data)):
         data = collect_data[i]
         xs, ys = zip(*data)
@@ -117,7 +120,12 @@ def plot_multiple_results(directories):
 
         usex = xs[0]
         ymean = np.nanmean(ys, axis=0)
+        ymedian = np.nanmedian(ys, axis=0)
         ystd = np.nanstd(ys, axis=0)
+        return_means.append(ymean)
+        return_medians.append(ymedian)
+        return_stds.append(ystd)
+        exp_step_idxs.append(usex)
         ystderr = ystd / np.sqrt(len(ys))
         plt.plot(usex, ymean, label='config')
         if args.shaded_err:
@@ -138,6 +146,79 @@ def plot_multiple_results(directories):
         legend_name = args.legend
     else:
         legend_name = [directories[i].split('/')[-1] for i in range(len(directories))]
+
+    # import pdb; pdb.set_trace()
+    # Print scores
+    if args.score:
+        for i in range(len(collect_data)):
+            idx_100k = np.where(exp_step_idxs[i] == 100000)[0]
+            idx_200k = np.where(exp_step_idxs[i] == 200000)[0]
+            idx_300k = np.where(exp_step_idxs[i] == 300000)[0]
+            idx_400k = np.where(exp_step_idxs[i] == 400000)[0]
+            idx_500k = np.where(exp_step_idxs[i] == 480000)[0]
+
+            # idx_100k = np.where(exp_step_idxs[i] == 80000)[0]
+            # idx_200k = np.where(exp_step_idxs[i] == 200000)[0]
+            # idx_300k = np.where(exp_step_idxs[i] == 280000)[0]
+            # idx_400k = np.where(exp_step_idxs[i] == 400000)[0]
+            # idx_500k = np.where(exp_step_idxs[i] == 480000)[0]
+
+            # idx_100k = np.where(exp_step_idxs[i] == 80000)[0]
+            # idx_200k = np.where(exp_step_idxs[i] == 240000)[0]
+            # idx_300k = np.where(exp_step_idxs[i] == 320000)[0]
+            # idx_400k = np.where(exp_step_idxs[i] == 400000)[0]
+            # idx_500k = np.where(exp_step_idxs[i] == 480000)[0]
+
+            if len(idx_100k) < 1:
+                print('[WARN] Not found value @ 100k of ', legend_name[i])
+                continue
+            else:
+                idx = idx_100k[0]
+                score_mean = return_means[i][idx]
+                score_std = return_stds[i][idx]
+                print("Ex: %s, score@100k=%.0f+%.0f" % (legend_name[i], score_mean, score_std))
+
+            if len(idx_200k) < 1:
+                print('[WARN] Not found value @ 200k of ', legend_name[i])
+                continue
+            else:
+                idx = idx_200k[0]
+                score_mean = return_means[i][idx]
+                score_std = return_stds[i][idx]
+                print("Ex: %s, score@200k=%.0f+%.0f" % (legend_name[i], score_mean, score_std))
+
+            if len(idx_300k) < 1:
+                print('[WARN] Not found value @ 300k of ', legend_name[i])
+                continue
+            else:
+                idx = idx_300k[0]
+                score_mean = return_means[i][idx]
+                score_std = return_stds[i][idx]
+                print("Ex: %s, score@300k=%.0f+%.0f" % (legend_name[i], score_mean, score_std))
+
+            if len(idx_400k) < 1:
+                print('[WARN] Not found value @ 400k of ', legend_name[i])
+                continue
+            else:
+                idx = idx_400k[0]
+                score_mean = return_means[i][idx]
+                score_std = return_stds[i][idx]
+                print("Ex: %s, score@400k=%.0f+%.0f" % (legend_name[i], score_mean, score_std))
+
+            if len(idx_500k) < 1:
+                print('[WARN] Not found value @ 500k of ', legend_name[i])
+                continue
+            else:
+                idx = idx_500k[0]
+                score_mean = return_means[i][idx]
+                score_std = return_stds[i][idx]
+                print("Ex: %s, score@500k=%.0f+%.0f" % (legend_name[i], score_mean, score_std))
+
+            # idx = args.range
+            # score_mean = return_means[i][idx]
+            # score_std = return_stds[i][idx]
+            # print("Ex: %s, score@500k=%.0f+%.0f" % (legend_name[i], score_mean, score_std))
+
 
     #plt.legend(legend_name, loc='best', fontsize='x-large')
     plt.legend(legend_name, loc='lower right', fontsize='x-large')
