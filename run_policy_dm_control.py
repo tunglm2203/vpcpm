@@ -10,19 +10,25 @@ import matplotlib.pyplot as plt
 
 import utils
 from train_from_pretrained import make_agent
+from video import VideoRecorder
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    # pre-trained encoder
+    ## pre-trained encoder
     parser.add_argument('--dir', default='.', type=str)
     parser.add_argument('--pretrained', default=None, type=str)
     parser.add_argument('--step', default=None, type=int)
     parser.add_argument('--n_tests', default=10, type=int)
     parser.add_argument('--render', action='store_true')
+    parser.add_argument('--logdir', type=str, default='.')
+    parser.add_argument('--record', action='store_true')
+    parser.add_argument('--cpu', action='store_true', default=False)
+
+
     # environment
-    parser.add_argument('--domain_name', default='walker')
-    parser.add_argument('--task_name', default='walk')
+    parser.add_argument('--domain_name', default='')
+    parser.add_argument('--task_name', default='')
     parser.add_argument('--pre_transform_image_size', default=100, type=int)
 
     parser.add_argument('--image_size', default=84, type=int)
@@ -64,7 +70,7 @@ def parse_args():
     parser.add_argument('--alpha_lr', default=1e-4, type=float)
     parser.add_argument('--alpha_beta', default=0.5, type=float)
     # misc
-    parser.add_argument('--seed', default=1, type=int)
+    parser.add_argument('--seed', default=None, type=int)
     parser.add_argument('--exp', default='exp', type=str)
     parser.add_argument('--work_dir', default='.', type=str)
     parser.add_argument('--save_tb', default=False, action='store_true')
@@ -119,10 +125,12 @@ def render(obs, stack_frame=1):
 
 
 """
-Example to run:
-python collect_demonstrations.py --dir ./logs/../pixel-rgb-crop-s1-2020_10_12_22_46_25 --step 100000 \
-    --domain_name cheetah --task_name run --render
-if `step` is not provided, it takes the last step
+Example to run: for rendering
+python collect_demonstrations.py --dir ./logs/../pixel-rgb-crop-s1-2020_10_12_22_46_25 --step 0 --render
+or, for recording video:
+python run_policy_dm_control.py --dir ./logs/../pixel-rgb-crop-s1-2020_10_12_22_46_25 --step 0 --n_tests 1 --logdir . --record --cpu
+
+where, step is checkpoint step, if `step` is not provided, it takes the last step.
 """
 def main(args):
     ckpt_args = get_args_from_checkpoint(args.dir)
@@ -148,7 +156,10 @@ def main(args):
     if args.encoder_type == 'pixel':
         env = utils.FrameStack(env, k=args.frame_stack)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if not args.cpu:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = 'cpu'
 
     action_shape = env.action_space.shape
 
@@ -166,6 +177,12 @@ def main(args):
         pretrained_path=pretrained_path
     )
 
+    if args.record:
+        video_dir = args.logdir
+        video = VideoRecorder(video_dir if args.record else None)
+    else:
+        video = None
+
     model_dir = os.path.join(args.dir, 'model')
     agent.load(model_dir=model_dir, step=args.step)
 
@@ -175,6 +192,9 @@ def main(args):
     start_time = time.time()
     for i in range(n_tests):
         obs = env.reset()
+        if args.record:
+            video.init(enabled=True)
+            video.record(env)
         if args.render:
             render(obs)
         done = False
@@ -198,7 +218,13 @@ def main(args):
                 render(obs)
             episode_reward += reward
 
+            if args.record:
+                video.record(env)
+
         all_ep_rewards.append(episode_reward)
+        if args.record:
+            video.save('{}-{}_step{}_trial{}.mp4'.format(
+                args.domain_name, args.task_name, args.step, i + 1))
     print("eval/eval_time: %.4f (s)" % (time.time() - start_time))
     mean_ep_reward = np.mean(all_ep_rewards)
     std_ep_reward = np.std(all_ep_rewards)
