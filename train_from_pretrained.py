@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
-    parser.add_argument('--eval_freq', default=1000, type=int)
+    parser.add_argument('--eval_freq', default=10000, type=int)
     parser.add_argument('--num_eval_episodes', default=10, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
@@ -299,25 +299,30 @@ def main():
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
 
+    # Override eval_freq as number of env steps
+    args.eval_freq = int(args.eval_freq / args.action_repeat)
+
     env_step = 0
     for step in tqdm(range(args.num_train_steps + 1)):
-        # evaluate agent periodically
-
-        if step % args.eval_freq == 0:
-            print('[INFO] {}-{}- Experiment: {} - seed:{}'.format(args.domain_name, args.task_name, args.exp, args.seed))
-            L.log('eval/episode', episode, env_step)
-            evaluate(env, agent, video, args.num_eval_episodes, L, step, env_step, args)
-            if args.save_model:
-                agent.save(model_dir, step)
-            if args.save_buffer:
-                replay_buffer.save(buffer_dir)
-
         if done:
             if step > 0:
                 if step % args.log_interval == 0:
                     L.log('train/duration', time.time() - start_time, env_step)
                     L.dump(env_step)
                 start_time = time.time()
+
+            if step % args.eval_freq == 0:
+                print('[INFO] {}-{}- Experiment: {} - seed:{}'.format(args.domain_name,
+                                                                      args.task_name, args.exp,
+                                                                      args.seed))
+                L.log('eval/episode', episode, env_step)
+                evaluate(env, agent, video, args.num_eval_episodes, L, step, env_step, args)
+                if args.save_model or step == args.num_train_steps or \
+                    step == int(100000 / args.action_repeat) or step == int(500000 / args.action_repeat):
+                    agent.save(model_dir, step)
+                if args.save_buffer:
+                    replay_buffer.save(buffer_dir)
+
             if step % args.log_interval == 0:
                 L.log('train/episode_reward', episode_reward, env_step)
 
@@ -326,6 +331,7 @@ def main():
             episode_reward = 0
             episode_step = 0
             episode += 1
+
             if step % args.log_interval == 0:
                 L.log('train/episode', episode, env_step)
 
@@ -352,6 +358,7 @@ def main():
             done
         )
         episode_reward += reward
+
         replay_buffer.add(obs, action, reward, next_obs, done_bool)
 
         obs = next_obs
