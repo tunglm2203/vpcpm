@@ -245,8 +245,22 @@ def main():
         width=pre_transform_image_size,
         frame_skip=args.action_repeat
     )
-
     env.seed(args.seed)
+
+    eval_env = dmc2gym.make(
+        domain_name=args.domain_name,
+        task_name=args.task_name,
+        seed=args.seed,
+        visualize_reward=False,
+        from_pixels=(args.encoder_type == 'pixel'),
+        height=pre_transform_image_size,
+        width=pre_transform_image_size,
+        frame_skip=args.action_repeat
+    )
+    if args.domain_name == 'cheetah':
+        eval_env.seed(2)
+    else:
+        eval_env.seed(args.seed)
 
     # stack several consecutive frames together
     if args.encoder_type == 'pixel':
@@ -316,7 +330,7 @@ def main():
                                                                       args.task_name, args.exp,
                                                                       args.seed))
                 L.log('eval/episode', episode, env_step)
-                evaluate(env, agent, video, args.num_eval_episodes, L, step, env_step, args)
+                evaluate(eval_env, agent, video, args.num_eval_episodes, L, step, env_step, args)
                 if args.save_model or step == args.num_train_steps or \
                     step == int(100000 / args.action_repeat) or step == int(500000 / args.action_repeat):
                     agent.save(model_dir, step)
