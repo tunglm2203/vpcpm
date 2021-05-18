@@ -265,6 +265,7 @@ def main():
     # stack several consecutive frames together
     if args.encoder_type == 'pixel':
         env = utils.FrameStack(env, k=args.frame_stack)
+        eval_env = utils.FrameStack(eval_env, k=args.frame_stack)
     
     # make directory
     make_logdir(args)
