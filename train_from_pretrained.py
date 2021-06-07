@@ -25,6 +25,7 @@ from tqdm import tqdm
 def parse_args():
     parser = argparse.ArgumentParser()
     # pre-trained encoder
+    parser.add_argument('--pretrained_cls', default=None, type=str)
     parser.add_argument('--pretrained', default=None, type=str)
     parser.add_argument('--step', default=-1, type=int)
     # environment
@@ -257,10 +258,7 @@ def main():
         width=pre_transform_image_size,
         frame_skip=args.action_repeat
     )
-    if args.domain_name == 'cheetah':
-        eval_env.seed(2)
-    else:
-        eval_env.seed(args.seed)
+    eval_env.seed(args.seed)
 
     # stack several consecutive frames together
     if args.encoder_type == 'pixel':
@@ -298,9 +296,13 @@ def main():
         image_size=args.image_size,
         pre_image_size=pre_image_size
     )
+    if args.pretrained is not None:
+        pretrained_path = get_pretrained_path(args.pretrained, args.step)
+    elif args.pretrained_cls is not None:
+        pretrained_path = args.pretrained_cls
+    else:
+        pretrained_path = None
 
-    pretrained_path = get_pretrained_path(args.pretrained, args.step) \
-        if args.pretrained is not None else None
     agent = make_agent(
         obs_shape=obs_shape,
         action_shape=action_shape,
