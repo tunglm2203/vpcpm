@@ -41,3 +41,5 @@ scripts_walker/
 speed_results/
 figures/
 *.sh
+
+tester/
