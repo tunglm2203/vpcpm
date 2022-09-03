@@ -43,3 +43,5 @@ figures/
 *.sh
 
 tester/
+
+ablation/
